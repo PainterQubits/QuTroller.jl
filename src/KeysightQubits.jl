@@ -13,7 +13,7 @@ export Pulse
 
 include("Core.jl")
 include("Stimulus.jl")
+include("Response.jl")
 include("Configure.jl")
-include("source.jl")
 
 end
