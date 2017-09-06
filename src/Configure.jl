@@ -9,8 +9,8 @@ function configure_awg_general(stim::QubitCharacterization)
     #Configuring XY channels
     XY_I = stim.IQ_XY_chs[1]
     XY_Q = stim.IQ_XY_chs[2]
-    awg[WaveformShape, stim.IQ_XY_chs...] = :Sinusoidal
     awg[WaveAmplitude,stim.IQ_XY_chs...] = 0
+    awg[WaveformShape, stim.IQ_XY_chs...] = :Sinusoidal
     awg[DCOffset,stim.IQ_XY_chs...] = 0
     awg[QueueCycleMode, stim.IQ_XY_chs...] = :Cyclic
     awg[QueueSyncMode, stim.IQ_XY_chs...] = :CLKPXI
@@ -21,6 +21,7 @@ function configure_awg_general(stim::QubitCharacterization)
     #Configuring Readout channels
     read_I = stim.IQ_readout_chs[1]
     read_Q = stim.IQ_readout_chs[2]
+    awg[WaveAmplitude,stim.IQ_XY_chs...] = 0 #turning off function generator in case it was already on
     awg[WaveformShape, stim.IQ_readout_chs...] = :Arbitrary
     awg[QueueCycleMode, stim.IQ_readout_chs...] = :Cyclic
     awg[QueueSyncMode, stim.IQ_readout_chs...] = :CLKPXI
@@ -42,17 +43,21 @@ end
 
 function configure_awg(stim::T1)
     configure_awg_general(stim)
+    try
+        awg[AmpModGain, stim.IQ_XY_chs...] = stim.Xpi.amplitude
+    catch
+        println("Did you set the pulse amplitude?")
     #further configuring XY channels
     XY_I = stim.IQ_XY_chs[1]
     XY_Q = stim.IQ_XY_chs[2]
     awg[FGFrequency, stim.IQ_XY_chs...] = stim.Xpi.IF_freq
     awg[FGPhase, XY_I] = stim.Xpi.IF_phase
     awg[FGPhase, XY_Q] = stim.Xpi.IF_phase + π/2
-    awg[AmpModGain, stim.IQ_XY_chs...] = stim.Xpi.amplitude
+
 
     #loading Xpi waveforms
     biggest_id = sort(collect(keys(awg.waveforms)))[end]
-    Xpi_wav = stim.Xpi.envelope.waveform
+    Xpi_wav = stim.Xpi.envelope
     if !(Xpi_wav in values(awg.waveforms))
         load_waveform(awg, Xpi_wav, biggest_id+1, waveform_type = :Analog32)
     end
