@@ -6,6 +6,7 @@ mutable struct IQ_FPGAResponse <: Response
 end
 
 function measure(IQ_FPGAResponse)
+    #clockResetPhase?
     ins = resp.ins
     timeout = 0
     for ch in [resp.I_ch, resp.Q_ch]
