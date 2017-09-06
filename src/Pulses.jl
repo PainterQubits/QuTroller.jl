@@ -28,6 +28,7 @@ mutable struct AnalogPulse <: Pulse
                 env::Waveform) = begin
         pulse = new(IF_freq, sample_rate, duration, IF_phase)
         pulse.envelope = env
+        return pulse
     end
 
     AnalogPulse(IF_freq::Real, sample_rate::Real, duration::Real, IF_phase::Real,
