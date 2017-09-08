@@ -47,6 +47,7 @@ function configure_awg(stim::T1)
         awg[AmpModGain, stim.IQ_XY_chs...] = stim.Xpi.amplitude
     catch
         println("Did you set the pulse amplitude?")
+    end
     #further configuring XY channels
     XY_I = stim.IQ_XY_chs[1]
     XY_Q = stim.IQ_XY_chs[2]

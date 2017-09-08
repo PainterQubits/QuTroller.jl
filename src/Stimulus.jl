@@ -2,7 +2,9 @@ export T1
 export RabiOscilattions
 export Ramsey
 
-include("source.jl")
+#CHANGE CHANGE CHANGE CHANGE FIX FIX FIX FIX
+global const DECAY_TIME = 60
+global const END_DELAY = 60
 
 abstract type QubitCharacterization <: Stimulus end
 
@@ -31,7 +33,7 @@ inputs as optional or keyword arguments with some standard values. The stimulus 
 can be further customized by explicitly specifying these optional or keyword arguments.
 """
 T1(awg::InsAWGM320XA, Xpi::Pulse, readout::Pulse, XY_PXI_marker::Integer,
-    decay_delay = DECAY_TIME, end_delay = END DELAY; axisname = :t1delay, axislabel = "Delay",
+    decay_delay = DECAY_TIME, end_delay = END_DELAY; axisname = :t1delay, axislabel = "Delay",
     IQ_Xpi_chs::Tuple{Integer,Integer} = (1,2), IQ_readout_chs::Tuple{Integer,Integer} = (3,4)) =
     T1(awg, Xpi, readout, IQ_Xpi_chs, IQ_readout_chs, XY_PXI_marker, decay_delay, end_delay, axisname, axislabel)
 
@@ -61,3 +63,6 @@ mutable struct Ramsey <: QubitCharacterization
     axisname::Symbol
     axislabel::String
 end
+
+
+include("source.jl")

@@ -36,7 +36,7 @@ mutable struct AnalogPulse <: Pulse
 
     AnalogPulse(IF_freq::Real, sample_rate::Real, duration::Real, IF_phase::Real,
                 amplitude::Real, env::Waveform) = new(IF_freq, sample_rate, duration,
-                                                      IF_phase, amplitude, env))
+                                                      IF_phase, amplitude, env)
 end
 
 function AnalogPulse(IF_freq::Real, sample_rate::Real, duration::Real,
@@ -84,7 +84,7 @@ end
 
 function DigitalPulse(IF_freq::Real, sample_rate::Real, duration::Real, amplitude::Real,
             ::Type{CosEnvelope}, IF_phase::Real = 0; name = string(T)*"_"*
-            string(amplitude)*"_"*string(duration)))
+            string(amplitude)*"_"*string(duration))
     pulse = DigitalPulse(IF_freq, sample_rate, duration, IF_phase, amplitude)
     env = make_CosEnvelope(duration, sample_rate, "temp_wav_object")
     IF_signal = exp(im*(2π*IF_freq*t + IF_phase))
