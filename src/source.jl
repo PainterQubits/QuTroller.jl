@@ -8,9 +8,6 @@ function source(stim::T1, τ::Real)
             nums_to_mask(tuple(stim.IQ_XY_chs..., stim.IQ_readout_chs...)...))
     if τ == 0 #first time point in the sweep; initialize AWG here
         configure_awg(stim)
-        new_id = sort(collect(keys(awg.waveforms)))[end] + 1 #load first XY pulse with new ID
-    else
-        new_id = sort(collect(keys(awg.waveforms)))[end] #load subsequent XY pulses with same ID
     end
     queue_flush.(awg, stim.IQ_XY_chs) #flushing queue of XY channel to reset delays
 
@@ -60,6 +57,9 @@ function source(stim::Rabi, t::Real)
             nums_to_mask(tuple(stim.IQ_XY_chs..., stim.IQ_readout_chs...)...))
     if t == 0 #first time point in the sweep; initialize AWG here
         configure_awg(stim)
+        new_id = sort(collect(keys(awg.waveforms)))[end] + 1 #load first XY pulse with new ID
+    else
+        new_id = sort(collect(keys(awg.waveforms)))[end] #load subsequent XY pulses with same ID
     end
     queue_flush.(awg, stim.IQ_XY_chs) #flushing queue of XY channel to reset delays
 
@@ -72,11 +72,10 @@ function source(stim::Rabi, t::Real)
     XY_marker_delay = Int(round(t*sample_rate))
 
     #making XY pulse and loading it
-    new_id =sort(collect(keys(awg.waveforms)))[end] +1
     XY_pulse = AnalogPulse(stim.XY_IF_feq, readout.sample_rate, t, CosEnvelope)
     XY_wav = XY_pulse.envelope
     if !(XY_wav in values(awg.waveforms))
-        load_waveform(awg, XY_wav, new_id, waveform_type = :Analog16) #new_id defined earlier in function
+        load_waveform(awg, XY_wav, new_id) #new_id defined earlier in function
     end
 
     #queueing waveforms
