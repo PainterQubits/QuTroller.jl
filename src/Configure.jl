@@ -13,7 +13,7 @@ function configure_awg_general(stim::QubitCharacterization)
     awg[WaveformShape, stim.IQ_XY_chs...] = :Sinusoidal
     awg[DCOffset,stim.IQ_XY_chs...] = 0
     awg[QueueCycleMode, stim.IQ_XY_chs...] = :Cyclic
-    awg[QueueSyncMode, stim.IQ_XY_chs...] = :CLKPXI
+    awg[QueueSyncMode, stim.IQ_XY_chs...] = :CLK10
     awg[TrigSource, stim.IQ_XY_chs...] = :Auto
     awg[AmpModMode, stim.IQ_XY_chs...] = :AmplitudeMod
 
@@ -24,24 +24,29 @@ function configure_awg_general(stim::QubitCharacterization)
     awg[WaveAmplitude,stim.IQ_XY_chs...] = 0 #turning off function generator in case it was already on
     awg[WaveformShape, stim.IQ_readout_chs...] = :Arbitrary
     awg[QueueCycleMode, stim.IQ_readout_chs...] = :Cyclic
-    awg[QueueSyncMode, stim.IQ_readout_chs...] = :CLKPXI
+    awg[QueueSyncMode, stim.IQ_readout_chs...] = :CLK10
     awg[TrigBehavior, stim.IQ_readout_chs...] = :Falling
-    awg[TrigSource, stim.IQ_readout_chs...] = XY_PXI_marker
+    awg[TrigSource, stim.IQ_readout_chs...] = stim.XY_PXI_marker
 
     #checking to see if readout waveforms were loaded; if not, we load them here
-    biggest_id = sort(collect(keys(awg.waveforms)))[end]
+    try
+        biggest_id = sort(collect(keys(awg.waveforms)))[end]
+    catch
+        biggest_id = 0
+    end
     read_I_wav = stim.readout.I_waveform
     read_Q_wav = stim.readout.Q_waveform
     if !(read_I_wav in values(awg.waveforms))
-        load_waveform(awg, read_I_wav, biggest_id+1, waveform_type = :Digital)
+        load_waveform(awg, read_I_wav, biggest_id+1, waveform_type = :Analog16)
         biggest_id = biggest_id+1
     end
     read_Q_wav in values(awg.waveforms) || load_waveform(awg, read_Q_wav, biggest_id+1,
-                                                       waveform_type = :Digital)
+                                                       waveform_type = :Analog16)
     nothing
 end
 
 function configure_awg(stim::T1)
+    awg = stim.awg
     configure_awg_general(stim)
     try
         awg[AmpModGain, stim.IQ_XY_chs...] = stim.Xpi.amplitude
@@ -60,12 +65,13 @@ function configure_awg(stim::T1)
     biggest_id = sort(collect(keys(awg.waveforms)))[end]
     Xpi_wav = stim.Xpi.envelope
     if !(Xpi_wav in values(awg.waveforms))
-        load_waveform(awg, Xpi_wav, biggest_id+1, waveform_type = :Analog32)
+        load_waveform(awg, Xpi_wav, biggest_id+1, waveform_type = :Analog16)
     end
     nothing
 end
 
 function configure_awg(stim::Rabi)
+    awg = stim.awg
     configure_awg_general(stim)
     #further configuring XY channels
     XY_I = stim.IQ_XY_chs[1]
