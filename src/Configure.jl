@@ -2,7 +2,7 @@ function configure_awg_general(stim::QubitCharacterization)
     awg = stim.awg
     #flushing queues, etc
     queue_flush.(awg, collect(tuple(stim.IQ_XY_chs..., stim.IQ_readout_chs...)))
-    @error_handler SD_AOU_channelPhaseResetMultiple(awg.index,
+    @KSerror_handler SD_AOU_channelPhaseResetMultiple(awg.ID,
             nums_to_mask(tuple(stim.IQ_XY_chs..., stim.IQ_readout_chs...)...))
     #clockResetPhase?
 

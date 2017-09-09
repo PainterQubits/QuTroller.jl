@@ -4,7 +4,7 @@ function source(stim::T1, τ::Real)
     readout = stim.readout
     sample_rate = Xpi.sample_rate
     #prepping AWG for sourcing
-    @error_handler SD_AOU_AWGstopMultiple(awg.index, #stopping AWG in case it wasn't stopped before
+    @KSerror_handler SD_AOU_AWGstopMultiple(awg.ID, #stopping AWG in case it wasn't stopped before
             nums_to_mask(tuple(stim.IQ_XY_chs..., stim.IQ_readout_chs...)...))
     if τ == 0 #first time point in the sweep; initialize AWG here
         configure_awg(stim)
@@ -40,13 +40,13 @@ function source(stim::T1, τ::Real)
 
     #Configure Markers
     marker_duration = Int(round(readout.duration*sample_rate))
-    @error_handler SD_AOU_AWGqueueMarkerConfig(awg.index, XY_I, 2, #2--> On WF start after WF delay
+    @KSerror_handler SD_AOU_AWGqueueMarkerConfig(awg.ID, XY_I, 2, #2--> On WF start after WF delay
         nums_to_mask(stim.XY_PXI_marker), 1, 1, 1, marker_duration, XY_marker_delay)
-    @error_handler SD_AOU_AWGqueueMarkerConfig(awg.index, read_I, 2, #2--> On WF start after WF delay
+    @KSerror_handler SD_AOU_AWGqueueMarkerConfig(awg.ID, read_I, 2, #2--> On WF start after WF delay
         nums_to_mask(stim.XY_PXI_marker), 1, 1, 1, marker_duration, read_marker_delay)
 
     #Start AWGs
-    @error_handler SD_AOU_AWGstartMultiple(awg.index,
+    @KSerror_handler SD_AOU_AWGstartMultiple(awg.ID,
             nums_to_mask(tuple(stim.IQ_XY_chs..., stim.IQ_readout_chs...)...))
     nothing
 end
@@ -56,7 +56,7 @@ function source(stim::Rabi, t::Real)
     readout = stim.readout
     sample_rate = readout.sample_rate
     #prepping AWG for sourcing
-    @error_handler SD_AOU_AWGstopMultiple(awg.index, #stopping AWG in case it wasn't stopped before
+    @KSerror_handler SD_AOU_AWGstopMultiple(awg.ID, #stopping AWG in case it wasn't stopped before
             nums_to_mask(tuple(stim.IQ_XY_chs..., stim.IQ_readout_chs...)...))
     if t == 0 #first time point in the sweep; initialize AWG here
         configure_awg(stim)
@@ -97,13 +97,13 @@ function source(stim::Rabi, t::Real)
 
     #Configure Markers
     marker_duration = Int(round(readout.duration*sample_rate))
-    @error_handler SD_AOU_AWGqueueMarkerConfig(awg.index, XY_I, 2, #2--> On WF start after WF delay
+    @KSerror_handler SD_AOU_AWGqueueMarkerConfig(awg.ID, XY_I, 2, #2--> On WF start after WF delay
         nums_to_mask(stim.XY_PXI_marker), 1, 1, 1, marker_duration, XY_marker_delay)
-    @error_handler SD_AOU_AWGqueueMarkerConfig(awg.index, read_I, 2, #2--> On WF start after WF delay
+    @KSerror_handler SD_AOU_AWGqueueMarkerConfig(awg.ID, read_I, 2, #2--> On WF start after WF delay
         nums_to_mask(stim.XY_PXI_marker), 1, 1, 1, marker_duration, read_marker_delay)
 
     #Start AWGs
-    @error_handler SD_AOU_AWGstartMultiple(awg.index,
+    @KSerror_handler SD_AOU_AWGstartMultiple(awg.ID,
             nums_to_mask(tuple(stim.IQ_XY_chs..., stim.IQ_readout_chs...)...))
     nothing
 end
@@ -114,7 +114,7 @@ function source(stim::Ramsey, τ::Real)
     readout = stim.readout
     sample_rate = X_half_pi.sample_rate
     #prepping AWG for sourcing
-    @error_handler SD_AOU_AWGstopMultiple(awg.index, #stopping AWG in case it wasn't stopped before
+    @KSerror_handler SD_AOU_AWGstopMultiple(awg.ID, #stopping AWG in case it wasn't stopped before
             nums_to_mask(tuple(stim.IQ_XY_chs..., stim.IQ_readout_chs...)...))
     if τ == 0 #first time point in the sweep; initialize AWG here
         configure_awg(stim)
@@ -152,13 +152,13 @@ function source(stim::Ramsey, τ::Real)
 
     #Configure Markers
     marker_duration = Int(round(readout.duration*sample_rate))
-    @error_handler SD_AOU_AWGqueueMarkerConfig(awg.index, XY_I, 2, #2--> On WF start after WF delay
+    @KSerror_handler SD_AOU_AWGqueueMarkerConfig(awg.ID, XY_I, 2, #2--> On WF start after WF delay
         nums_to_mask(stim.XY_PXI_marker), 1, 1, 1, marker_duration, XY_marker_delay)
-    @error_handler SD_AOU_AWGqueueMarkerConfig(awg.index, read_I, 2, #2--> On WF start after WF delay
+    @KSerror_handler SD_AOU_AWGqueueMarkerConfig(awg.ID, read_I, 2, #2--> On WF start after WF delay
         nums_to_mask(stim.XY_PXI_marker), 1, 1, 1, marker_duration, read_marker_delay)
 
     #Start AWGs
-    @error_handler SD_AOU_AWGstartMultiple(awg.index,
+    @KSerror_handler SD_AOU_AWGstartMultiple(awg.ID,
             nums_to_mask(tuple(stim.IQ_XY_chs..., stim.IQ_readout_chs...)...))
     nothing
 end
