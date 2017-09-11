@@ -1,92 +1,94 @@
-function configure_awg_general(stim::QubitCharacterization)
-    awg = stim.awg
+function configure_awgs_general(stim::QubitCharacterization)
+    awgXY = stim.awgXY
+    awgRead = stim.awgRead
     #flushing queues, etc
-    queue_flush.(awg, collect(tuple(stim.IQ_XY_chs..., stim.IQ_readout_chs...)))
-    @KSerror_handler SD_AOU_channelPhaseResetMultiple(awg.ID,
-            nums_to_mask(tuple(stim.IQ_XY_chs..., stim.IQ_readout_chs...)...))
-    #clockResetPhase?
+    queue_flush.(awgXY, stim.IQ_XY_chs)
+    queue_flush.(awgRead, stim.IQ_readout_chs)
+    @KSerror_handler SD_AOU_channelPhaseResetMultiple(awgXY.ID, nums_to_mask(stim.IQ_XY_chs...))
+    @KSerror_handler SD_AOU_channelPhaseResetMultiple(awgRead.ID, nums_to_mask(stim.IQ_readout_chs...))
+    #clockResetPhase? don't understand skw parameters
 
     #Configuring XY channels
-    XY_I = stim.IQ_XY_chs[1]
-    XY_Q = stim.IQ_XY_chs[2]
-    awg[Amplitude,stim.IQ_XY_chs...] = 0
-    awg[OutputMode, stim.IQ_XY_chs...] = :Sinusoidal
-    awg[DCOffset,stim.IQ_XY_chs...] = 0
-    awg[QueueCycleMode, stim.IQ_XY_chs...] = :Cyclic
-    awg[QueueSyncMode, stim.IQ_XY_chs...] = :CLK10
-    awg[TrigSource, stim.IQ_XY_chs...] = :Auto
-    awg[AmpModMode, stim.IQ_XY_chs...] = :AmplitudeMod
-
+    awgXY[Amplitude,stim.IQ_XY_chs...] = 0 #turning off generator in case it was already on
+    awgXY[OutputMode, stim.IQ_XY_chs...] = :Sinusoidal
+    awgXY[DCOffset,stim.IQ_XY_chs...] = 0
+    awgXY[QueueCycleMode, stim.IQ_XY_chs...] = :Cyclic
+    awgXY[QueueSyncMode, stim.IQ_XY_chs...] = :CLK10
+    awgXY[TrigSource, stim.IQ_XY_chs...] = :Auto
+    awgXY[TrigSync, stim.IQ_readout_chs...] = :CLK10
+    awgXY[AmpModMode, stim.IQ_XY_chs...] = :AmplitudeMod
+    awgXY[AngModMode, stim.IQ_XY_chs...] = :Off
 
     #Configuring Readout channels
+    awgRead[OutputMode, stim.IQ_readout_chs...] = :Arbitrary
+    awgRead[Amplitude,stim.IQ_readout_chs...] = stim.readoutPulse.amplitude #loaded waveforms are normalized, this sets their actual amplitude
+    awgRead[DCOffset,stim.IQ_XY_chs...] = 0 #still can set DCoffset to arbitrary waves
+    awgRead[QueueCycleMode, stim.IQ_readout_chs...] = :Cyclic
+    awgRead[QueueSyncMode, stim.IQ_readout_chs...] = :CLK10
+    awgRead[TrigSource, stim.IQ_readout_chs...] = stim.XY_PXI_marker
+    awgRead[TrigBehavior, stim.IQ_readout_chs...] = :Falling
+    awgRead[TrigSync, stim.IQ_readout_chs...] = :CLK10
+    awgRead[AmpModMode, stim.IQ_XY_chs...] = :Off
+    awgRead[AngModMode, stim.IQ_XY_chs...] = :Off
+
+    #load readout waveforms into awgRead if not already loaded
     read_I = stim.IQ_readout_chs[1]
     read_Q = stim.IQ_readout_chs[2]
-    awg[Amplitude,stim.IQ_XY_chs...] = 0 #turning off function generator in case it was already on
-    awg[OutputMode, stim.IQ_readout_chs...] = :Arbitrary
-    awg[QueueCycleMode, stim.IQ_readout_chs...] = :Cyclic
-    awg[QueueSyncMode, stim.IQ_readout_chs...] = :CLK10
-    awg[TrigBehavior, stim.IQ_readout_chs...] = :Falling
-    awg[TrigSource, stim.IQ_readout_chs...] = stim.XY_PXI_marker
-
-    #checking to see if readout waveforms were loaded; if not, we load them here
-    if size(sort(collect(keys(awg.waveforms))))[1] == 0
+    if size(collect(keys(awgRead.waveforms)))[1] == 0
         new_id = 1
     else
-        new_id = sort(collect(keys(awg.waveforms)))[end]+1
+        new_id = sort(collect(keys(awgRead.waveforms)))[end] + 1
     end
-    read_I_wav = stim.readout.I_waveform
-    read_Q_wav = stim.readout.Q_waveform
-    if !(read_I_wav in values(awg.waveforms))
-        load_waveform(awg, read_I_wav, new_id)
-        new_id = new_id+1
+    read_I_wav = stim.readoutPulse.I_waveform
+    read_Q_wav = stim.readoutPulse.Q_waveform
+    if !(read_I_wav in values(awgRead.waveforms))
+        load_waveform(awgRead, read_I_wav, new_id)
+        new_id = new_id + 1
     end
-    read_Q_wav in values(awg.waveforms) || load_waveform(awg, read_Q_wav, new_id)
+    (read_Q_wav in values(awgRead.waveforms)) || load_waveform(awgRead, read_Q_wav, new_id)
     nothing
 end
 
-function configure_awg(stim::T1)
-    awg = stim.awg
-    configure_awg_general(stim)
-    try
-        awg[AmpModGain, stim.IQ_XY_chs...] = stim.Xpi.amplitude
-    catch
-        println("Did you set the pulse amplitude?")
-    end
+function configure_awgs(stim::T1)
+    configure_awgs_general(stim)
+    awgXY = stim.awgXY
+    πPulse = stim.πPulse
+
     #further configuring XY channels
     XY_I = stim.IQ_XY_chs[1]
     XY_Q = stim.IQ_XY_chs[2]
-    awg[FGFrequency, stim.IQ_XY_chs...] = stim.Xpi.IF_freq
-    awg[FGPhase, XY_I] = stim.Xpi.IF_phase
-    awg[FGPhase, XY_Q] = stim.Xpi.IF_phase + π/2
+    awgXY[AmpModGain, stim.IQ_XY_chs...] = πPulse.amplitude
+    awgXY[FGFrequency, stim.IQ_XY_chs...] = πPulse.IF_freq
+    awgXY[FGPhase, XY_I] = πPulse.IF_phase
+    awgXY[FGPhase, XY_Q] = πPulse.IF_phase + π/2
 
-
-    #loading Xpi waveforms
-    new_id = sort(collect(keys(awg.waveforms)))[end] + 1
-    Xpi_wav = stim.Xpi.envelope
-    if !(Xpi_wav in values(awg.waveforms))
-        load_waveform(awg, Xpi_wav, new_id+1)
-    end
+    #loading πPulse waveforms
+    new_id = sort(collect(keys(awgXY.waveforms)))[end] + 1
+    πPulse_env = πPulse.envelope
+    (πPulse_env in values(awgXY.waveforms)) || load_waveform(awgXY, πPulse_env, new_id)
     nothing
 end
 
-function configure_awg(stim::Rabi)
-    awg = stim.awg
-    configure_awg_general(stim)
+function configure_awgs(stim::Rabi)
+    configure_awgs_general(stim)
+    awgXY = stim.awgXY
+    XYPulse = stim.XYPulse
+
     #further configuring XY channels
     XY_I = stim.IQ_XY_chs[1]
     XY_Q = stim.IQ_XY_chs[2]
-    awg[FGFrequency, stim.IQ_XY_chs...] = stim.XY_IF_feq
-    awg[FGPhase, XY_I] = 0
-    awg[FGPhase, XY_Q] = π/2
-    awg[AmpModGain, stim.IQ_XY_chs...] = stim.XY_amplitude
+    awgXY[AmpModGain, stim.IQ_XY_chs...] = XYPulse.amplitude
+    awgXY[FGFrequency, stim.IQ_XY_chs...] = XYPulse.IF_freq
+    awgXY[FGPhase, XY_I] = XYPulse.IF_phase
+    awgXY[FGPhase, XY_Q] = XYPulse.IF_phase + π/2
     nothing
 end
 
-function configure_awg(stim::Ramsey)
+function configure_awgs(stim::Ramsey)
     #I make a T1 object because these two types have the exact same fields and
     #configuration instructions, they only differ on the source function
-    temp_T1 = T1(stim.awg, stim.X_half_pi, stim.readout, stim.XY_PXI_marker, stim.decay_delay,
-      stim.end_delay, IQ_XY_chs = stim.IQ_XY_chs, IQ_readout_chs = stim.IQ_readout_chs)
+    temp_T1 = T1(stim.awgXY, stim.awgRead, stim.π_2Pulse, stim.readoutPulse, stim.decay_delay,
+                 stim.IQ_XY_chs, stim.IQ_readout_chs, stim.XY_PXI_marker, stim.axisname, stim.axislabel)
     configure_awg(temp_T1)
     nothing
 end
