@@ -1,35 +1,38 @@
 function configure_awgs_general(stim::QubitCharacterization)
     awgXY = stim.awgXY
     awgRead = stim.awgRead
-    #flushing queues, etc
+    #flushing queues, reseting clocks, resetting phase
     queue_flush.(awgXY, stim.IQ_XY_chs)
     queue_flush.(awgRead, stim.IQ_readout_chs)
+    @KSerror_handler SD_AOU_clockResetPhase(awgXY.ID, symbols_to_keysight(:Falling), 1, 0) #third input: PXI line, 4th input: skew
+    @KSerror_handler SD_Module_PXItriggerWrite(awgXY.ID, 1, 0) #turning line 1 on
+    @KSerror_handler SD_Module_PXItriggerWrite(awgXY.ID, 1, 1) #turning line 1 off
+    @KSerror_handler SD_AOU_clockResetPhase(awgRead.ID, symbols_to_keysight(:Falling), 1, 0) #third input: PXI line, 4th input: skew
+    @KSerror_handler SD_Module_PXItriggerWrite(awgRead.ID, 1, 0) #turning line 1 on
+    @KSerror_handler SD_Module_PXItriggerWrite(awgRead.ID, 1, 1) #turning line 1 off
     @KSerror_handler SD_AOU_channelPhaseResetMultiple(awgXY.ID, nums_to_mask(stim.IQ_XY_chs...))
-    @KSerror_handler SD_AOU_channelPhaseResetMultiple(awgRead.ID, nums_to_mask(stim.IQ_readout_chs...))
-    #clockResetPhase? don't understand skw parameters
+    @KSerror_handler SD_AOU_channelPhaseResetMultiple(awgRead.ID, nums_to_mask(stim.IQ_readout_chs...)) 
 
     #Configuring XY channels
     awgXY[Amplitude,stim.IQ_XY_chs...] = 0 #turning off generator in case it was already on
     awgXY[OutputMode, stim.IQ_XY_chs...] = :Sinusoidal
     awgXY[DCOffset,stim.IQ_XY_chs...] = 0
-    awgXY[QueueCycleMode, stim.IQ_XY_chs...] = :Cyclic
+    awgXY[QueueCycleMode, stim.IQ_XY_chs...] = :OneShot
     awgXY[QueueSyncMode, stim.IQ_XY_chs...] = :CLK10
-    awgXY[TrigSource, stim.IQ_XY_chs...] = :Auto
-    awgXY[TrigSync, stim.IQ_readout_chs...] = :CLK10
     awgXY[AmpModMode, stim.IQ_XY_chs...] = :AmplitudeMod
     awgXY[AngModMode, stim.IQ_XY_chs...] = :Off
 
     #Configuring Readout channels
     awgRead[OutputMode, stim.IQ_readout_chs...] = :Arbitrary
     awgRead[Amplitude,stim.IQ_readout_chs...] = stim.readoutPulse.amplitude #loaded waveforms are normalized, this sets their actual amplitude
-    awgRead[DCOffset,stim.IQ_XY_chs...] = 0 #still can set DCoffset to arbitrary waves
-    awgRead[QueueCycleMode, stim.IQ_readout_chs...] = :Cyclic
-    awgRead[QueueSyncMode, stim.IQ_readout_chs...] = :CLK10
+    awgRead[DCOffset,stim.IQ_readout_chs...] = 0 #still can set DCoffset to arbitrary waves
+    awgRead[QueueCycleMode, stim.IQ_readout_chs...] = :OneShot
+    awgRead[QueueSyncMode, stim.IQ_readout_chs...] = :CLKsys
     awgRead[TrigSource, stim.IQ_readout_chs...] = stim.XY_PXI_marker
     awgRead[TrigBehavior, stim.IQ_readout_chs...] = :Falling
-    awgRead[TrigSync, stim.IQ_readout_chs...] = :CLK10
-    awgRead[AmpModMode, stim.IQ_XY_chs...] = :Off
-    awgRead[AngModMode, stim.IQ_XY_chs...] = :Off
+    awgRead[TrigSync, stim.IQ_readout_chs...] = :CLKsys
+    awgRead[AmpModMode, stim.IQ_readout_chs...] = :Off
+    awgRead[AngModMode, stim.IQ_readout_chs...] = :Off
 
     #load readout waveforms into awgRead if not already loaded
     read_I = stim.IQ_readout_chs[1]

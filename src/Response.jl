@@ -1,31 +1,28 @@
 mutable struct IQ_FPGAResponse <: Response
-    ins::InsDigitizerM3102A
+    dig::InsDigitizerM3102A
     I_ch::Int #ch for channel
     Q_ch::Int
     trials::Int
 end
 
-function measure(IQ_FPGAResponse)
+function measure(resp::IQ_FPGAResponse)
     #clockResetPhase?
-    ins = resp.ins
+    dig = resp.dig
     timeout = 0
     for ch in [resp.I_ch, resp.Q_ch]
-        ins[DAQTrigMode, ch] = :Analog
-        ins[DAQTrigBehavior] = :Falling
-        ins[DAQPointsPerCycle, ch] = 1
-        ins[DAQCycles, ch] = 0 #this means infinite cycles--> limiting factor will be DAQpoints
-    end
-
-    #configuring buffers
-    for ch in [resp.I_ch, resp.Q_ch]
-        buffer = Ref{Vector{Int16}} #NEEDS TO BE CHANGED
-        @KSerror_handler SD_AIN_DAQbufferAdd(ins.ID, ch, buffer, trials) #trials goes in place of DAQpoints in this function
-        @KSerror_handler SD_AIN_DAQbufferPoolConfig(ins.ID, ch, trials, timeout) #the only thing I am configuring here seems to be timeout
+        dig[DAQTrigMode, ch] = :Analog
+        dig[AnalogTrigBehavior, ch] = :FallingAnalog
+        dig[AnalogTrigThreshold, ch] = 0.2 #Might need to change, this is value of PXI trigger voltage
+        dig[DAQPointsPerCycle, ch] = 1
+        dig[DAQCycles, ch] = trials
     end
 
     mask = chs_to_mask(resp.I_ch, resp.Q_ch)
-    @KSerror_handler SD_AIN_DAQstartMultiple(ins.ID, mask)
-    I_data = @KSerror_handler SD_AIN_DAQread(ins.ID, resp.I_ch, trials, timeout)
-    Q_data = @KSerror_handler SD_AIN_DAQread(ins.ID, resp.Q_ch, trials, timeout)
+    @KSerror_handler SD_AIN_DAQstartMultiple(dig.ID, mask)
+    while (SD_AIN_DAQcounterRead(dig.ID, resp.I_ch) < trials || SD_AIN_DAQcounterRead(dig.ID, resp.Q_ch) < trials)
+        sleep(0.001) #change
+    end
+    I_data = @KSerror_handler SD_AIN_DAQread(dig.ID, resp.I_ch, trials, timeout)
+    Q_data = @KSerror_handler SD_AIN_DAQread(dig.ID, resp.Q_ch, trials, timeout)
     return
 end

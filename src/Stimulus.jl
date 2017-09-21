@@ -3,7 +3,7 @@ export Rabi
 export Ramsey
 
 #CHANGE CHANGE CHANGE CHANGE FIX FIX FIX FIX
-global const DECAY_TIME = 125e-6
+global const DECAY_TIME = 13e-6
 
 """
 A Stimulus subtype for doing single qubit characterization experiments, such as

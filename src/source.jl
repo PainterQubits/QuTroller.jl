@@ -6,20 +6,23 @@ function source(stim::T1, τ::Real)
 
     #prepping AWG for sourcing
     #stopping AWG in case it wasn't stopped before
+    #flushing queue to reset it
     @KSerror_handler SD_AOU_AWGstopMultiple(awgXY.ID, nums_to_mask(stim.IQ_XY_chs...))
     @KSerror_handler SD_AOU_AWGstopMultiple(awgRead.ID, nums_to_mask(stim.IQ_readout_chs...))
+    #SD_Module_PXItriggerWrite(awgRead.ID, 2, 1)
     if τ == 0 #first time point in the sweep; initialize AWG here
         configure_awgs(stim)
     end
-    queue_flush.(awgXY, stim.IQ_XY_chs) #flushing queue of XY channel to reset delays
+    queue_flush.(awgXY, stim.IQ_XY_chs)
+    queue_flush.(awgXY, stim.IQ_readout_chs)
 
     #compute delays in multiples 10 of ns or 5XTLK
-    readout_length = 2*(stim.readout.duration + stim.decay_delay) + τ
+    readout_length = 2*(stim.readoutPulse.duration + stim.decay_delay) + τ
     readout_length_10ns = Int(div(readout_length/1e-9, 10))
     decay_delay_10ns = Int(div(stim.decay_delay/1e-9, 10))
     #NEEDS CHANGE!!!!!!!!!!
-    read_marker_delay = Int(round((readoutPulse.duration + stim.decay_delay)*sample_rate))
-    XY_marker_delay = Int(round((πPulse.duration + τ)*sample_rate))
+    read_marker_delay = Int(round((readoutPulse.duration + stim.decay_delay)/1e-9))
+    XY_marker_delay = Int(round((πPulse.duration + τ)/1e-9))
 
     #queueing waveforms
     XY_I = stim.IQ_XY_chs[1]
@@ -30,19 +33,21 @@ function source(stim::T1, τ::Real)
                             delay = readout_length_10ns)
     read_I = stim.IQ_readout_chs[1]
     read_Q = stim.IQ_readout_chs[2]
-    queue_waveform(awgRead, readout.I_waveform, read_I, :External, repetitions = 1)
-    queue_waveform(awgRead, readout.Q_waveform, read_Q, :External, repetitions = 1)
-    queue_waveform(awgRead, readout.I_waveform, read_I, :Auto, repetitions = 1,
+    queue_waveform(awgRead, readoutPulse.I_waveform, read_I, :External, repetitions = 1)
+    queue_waveform(awgRead, readoutPulse.Q_waveform, read_Q, :External, repetitions = 1)
+    queue_waveform(awgRead, readoutPulse.I_waveform, read_I, :Auto, repetitions = 1,
                    delay = decay_delay_10ns)
-    queue_waveform(awgRead, readout.Q_waveform, read_Q, :Auto, repetitions = 1,
+    queue_waveform(awgRead, readoutPulse.Q_waveform, read_Q, :Auto, repetitions = 1,
                   delay = decay_delay_10ns)
 
     #Configure Markers
-    marker_duration = Int(round(readout.duration/1e-9))
+    marker_duration_10ns = Int(div(readoutPulse.duration/1e-9, 10))
     @KSerror_handler SD_AOU_AWGqueueMarkerConfig(awgXY.ID, XY_I, 2, #2--> On WF start after WF delay
-        nums_to_mask(stim.XY_PXI_marker), 1, 1, 1, marker_duration, XY_marker_delay)
+        nums_to_mask(stim.XY_PXI_marker + 1), 1, 1, 1, marker_duration_10ns, 0)
+    #we input stim.XY_PXI_marker + 1 to nums_to_mask because the trigger lines are 0 indexed -->
+    #so PXI trigger line 2 corresponds to the THIRD trigger line when using nums_to_mask
     @KSerror_handler SD_AOU_AWGqueueMarkerConfig(awgRead.ID, read_I, 2, #2--> On WF start after WF delay
-        nums_to_mask(stim.XY_PXI_marker), 1, 1, 1, marker_duration, read_marker_delay)
+        nums_to_mask(stim.XY_PXI_marker + 1), 1, 1, 1, marker_duration_10ns, read_marker_delay)
 
     #Start AWGs
     @KSerror_handler SD_AOU_AWGstartMultiple(awgRead.ID, nums_to_mask(stim.IQ_readout_chs...))
@@ -73,7 +78,7 @@ function source(stim::Rabi, t::Real)
     queue_flush.(awgXY, stim.IQ_XY_chs) #flushing queue of XY channel to reset delays
 
     #compute delays in multiples 10 of ns or 5XTLK
-    readout_length = 2*(stim.readout.duration + stim.decay_delay)
+    readout_length = 2*(stim.readoutPulse.duration + stim.decay_delay)
     readout_length_10ns = Int(div(readout_length/1e-9, 10))
     decay_delay_10ns = Int(div(stim.decay_delay/1e-9, 10))
     #NEEDS CHANGE!!!!!!!!!!
@@ -97,15 +102,15 @@ function source(stim::Rabi, t::Real)
                             delay = readout_length_10ns)
     read_I = stim.IQ_readout_chs[1]
     read_Q = stim.IQ_readout_chs[2]
-    queue_waveform(awgRead, readout.I_waveform, read_I, :External, repetitions = 1)
-    queue_waveform(awgRead, readout.Q_waveform, read_Q, :External, repetitions = 1)
-    queue_waveform(awgRead, readout.I_waveform, read_I, :Auto, repetitions = 1,
+    queue_waveform(awgRead, readoutPulse.I_waveform, read_I, :External, repetitions = 1)
+    queue_waveform(awgRead, readoutPulse.Q_waveform, read_Q, :External, repetitions = 1)
+    queue_waveform(awgRead, readoutPulse.I_waveform, read_I, :Auto, repetitions = 1,
                    delay = decay_delay_10ns)
-    queue_waveform(awgRead, readout.Q_waveform, read_Q, :Auto, repetitions = 1,
-                   delay = decay_delay_10ns)
+    queue_waveform(awgRead, readoutPulse.Q_waveform, read_Q, :Auto, repetitions = 1,
+                  delay = decay_delay_10ns)
 
     #Configure Markers
-    marker_duration = Int(round(readout.duration/1e-9))
+    marker_duration = Int(round(readoutPulse.duration/1e-9))
     @KSerror_handler SD_AOU_AWGqueueMarkerConfig(awgXY.ID, XY_I, 2, #2--> On WF start after WF delay
        nums_to_mask(stim.XY_PXI_marker), 1, 1, 1, marker_duration, XY_marker_delay)
     @KSerror_handler SD_AOU_AWGqueueMarkerConfig(awgRead.ID, read_I, 2, #2--> On WF start after WF delay
@@ -133,7 +138,7 @@ function source(stim::Ramsey, τ::Real)
     queue_flush.(awgXY, stim.IQ_XY_chs) #flushing queue of XY channel to reset delays
 
     #compute delays in multiples 10 of ns or 5XTLK
-    readout_length = 2*(stim.readout.duration + stim.decay_delay) #readout sequence length
+    readout_length = 2*(stim.readoutPulse.duration + stim.decay_delay) #readout sequence length
     readout_length_10ns = Int(div(readout_length/1e-9, 10))
     decay_delay_10ns = Int(div(stim.decay_delay/1e-9, 10))
     #NEEDS CHANGE!!!!!!!!!!
@@ -152,17 +157,17 @@ function source(stim::Ramsey, τ::Real)
     queue_waveform(awgXY, π_2Pulse.envelope, XY_Q, :Auto, repetitions = 1, delay = τ)
     read_I = stim.IQ_readout_chs[1]
     read_Q = stim.IQ_readout_chs[2]
-    queue_waveform(awgRead, readout.I_waveform, read_I, :External, repetitions = 1)
-    queue_waveform(awgRead, readout.Q_waveform, read_Q, :External, repetitions = 1)
-    queue_waveform(awgRead, readout.I_waveform, read_I, :Auto, repetitions = 1,
+    queue_waveform(awgRead, readoutPulse.I_waveform, read_I, :External, repetitions = 1)
+    queue_waveform(awgRead, readoutPulse.Q_waveform, read_Q, :External, repetitions = 1)
+    queue_waveform(awgRead, readoutPulse.I_waveform, read_I, :Auto, repetitions = 1,
                    delay = decay_delay_10ns)
-    queue_waveform(awgRead, readout.Q_waveform, read_Q, :Auto, repetitions = 1,
+    queue_waveform(awgRead, readoutPulse.Q_waveform, read_Q, :Auto, repetitions = 1,
                   delay = decay_delay_10ns)
 
     #Configure Markers
-    marker_duration = Int(round(readout.duration/1e-9))
+    marker_duration = Int(round(readoutPulse.duration/1e-9))
     @KSerror_handler SD_AOU_AWGqueueMarkerConfig(awgXY.ID, XY_I, 2, #2--> On WF start after WF delay
-     nums_to_mask(stim.XY_PXI_marker), 1, 1, 1, marker_duration, XY_marker_delay)
+     nums_to_mask(stim.XY_PXI_marker), 1, 1, 0, marker_duration, XY_marker_delay)  #maybe sync=0 not best thing?
     @KSerror_handler SD_AOU_AWGqueueMarkerConfig(awgRead.ID, read_I, 2, #2--> On WF start after WF delay
      nums_to_mask(stim.XY_PXI_marker), 1, 1, 1, marker_duration, read_marker_delay)
 
