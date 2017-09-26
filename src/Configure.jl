@@ -2,10 +2,7 @@ function configure_awgs_general(stim::QubitCharacterization)
     awgXY = stim.awgXY
     awgRead = stim.awgRead
     awgMarker = stim.awgMarker
-    #flushing queues, reseting clocks, resetting phase
-    queue_flush.(awgXY, stim.IQ_XY_chs)
-    queue_flush.(awgRead, stim.IQ_readout_chs)
-    queue_flush(awgMarker, stim.markerCh)
+    #reseting clocks and resetting phase
     @KSerror_handler SD_AOU_clockResetPhase(awgXY.ID, symbols_to_keysight(:Falling),
                                             stim.PXI_line, 0) #4th input: skew
     @KSerror_handler SD_AOU_clockResetPhase(awgRead.ID, symbols_to_keysight(:Falling),
@@ -57,29 +54,19 @@ function configure_awgs_general(stim::QubitCharacterization)
     #load readout waveforms into awgRead if not already loaded
     read_I = stim.IQ_readout_chs[1]
     read_Q = stim.IQ_readout_chs[2]
-    if size(collect(keys(awgRead.waveforms)))[1] == 0
-        new_id = 1
-    else
-        new_id = sort(collect(keys(awgRead.waveforms)))[end] + 1
-    end
     read_I_wav = stim.readoutPulse.I_waveform
     read_Q_wav = stim.readoutPulse.Q_waveform
-    if !(read_I_wav in values(awgRead.waveforms))
-        load_waveform(awgRead, read_I_wav, new_id)
-        new_id = new_id + 1
-    end
-    (read_Q_wav in values(awgRead.waveforms)) || load_waveform(awgRead, read_Q_wav, new_id)
+    (read_I_wav in values(awgRead.waveforms)) || load_waveform(awgRead, read_Q_wav,
+                                                               make_wav_id(awgRead))
+    (read_Q_wav in values(awgRead.waveforms)) || load_waveform(awgRead, read_Q_wav,
+                                                               make_wav_id(awgRead))
 
     #load marker pulse
     sample_rate = awgMarker[SampleRate]
     offset = make_RectEnvelope(100e9, sample_rate)
     offset_wav = Waveform(square, "VoltageOffset=1")
-    if size(collect(keys(awgMarker.waveforms)))[1] == 0
-        new_id = 1
-    else
-        new_id = sort(collect(keys(awgMarker.waveforms)))[end] + 1
-    end
-    (offset_wav in values(awgMarker.waveforms)) || load_waveform(awgMarker, offset_wav, new_id)
+    (offset_wav in values(awgMarker.waveforms)) || load_waveform(awgMarker, offset_wav,
+                                                                 make_wav_id(awgMarker))
 
     nothing
 end
@@ -88,7 +75,6 @@ function configure_awgs(stim::T1)
     configure_awgs_general(stim)
     awgXY = stim.awgXY
     πPulse = stim.πPulse
-
     #further configuring XY channels
     XY_I = stim.IQ_XY_chs[1]
     XY_Q = stim.IQ_XY_chs[2]
@@ -98,13 +84,9 @@ function configure_awgs(stim::T1)
     awgXY[FGPhase, XY_Q] = πPulse.IF_phase + π/2
 
     #loading πPulse waveforms
-    if size(collect(keys(awgXY.waveforms)))[1] == 0
-        new_id = 1
-    else
-        new_id = sort(collect(keys(awgXY.waveforms)))[end] + 1
-    end
     πPulse_env = πPulse.envelope
-    (πPulse_env in values(awgXY.waveforms)) || load_waveform(awgXY, πPulse_env, new_id)
+    (πPulse_env in values(awgXY.waveforms)) || load_waveform(awgXY, πPulse_env,
+                                                             make_wav_id(awgXY))
     nothing
 end
 
@@ -112,7 +94,6 @@ function configure_awgs(stim::Rabi)
     configure_awgs_general(stim)
     awgXY = stim.awgXY
     XYPulse = stim.XYPulse
-
     #further configuring XY channels
     XY_I = stim.IQ_XY_chs[1]
     XY_Q = stim.IQ_XY_chs[2]

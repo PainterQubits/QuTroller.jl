@@ -90,7 +90,7 @@ mutable struct DigitalPulse <: Pulse
 end
 
 function DigitalPulse(IF_freq::Real, amplitude::Real, duration::Real, ::Type{CosEnvelope},
-                      sample_rate::Real, IF_phase::Real = 0; name = name = "CosEnvelope_"*
+                      sample_rate::Real, IF_phase::Real = 0; name = "CosEnvelope_"*
                       string(amplitude)*"_"*string(duration))
     env = make_CosEnvelope(duration, sample_rate)
     time_step = 1/sample_rate; t = collect(0:time_step:duration)
