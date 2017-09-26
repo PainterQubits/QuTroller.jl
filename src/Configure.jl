@@ -11,7 +11,7 @@ function configure_awgs_general(stim::QubitCharacterization)
     @KSerror_handler SD_Module_PXItriggerWrite(awgRead.ID, 1, 0) #turning line 1 on
     @KSerror_handler SD_Module_PXItriggerWrite(awgRead.ID, 1, 1) #turning line 1 off
     @KSerror_handler SD_AOU_channelPhaseResetMultiple(awgXY.ID, nums_to_mask(stim.IQ_XY_chs...))
-    @KSerror_handler SD_AOU_channelPhaseResetMultiple(awgRead.ID, nums_to_mask(stim.IQ_readout_chs...)) 
+    @KSerror_handler SD_AOU_channelPhaseResetMultiple(awgRead.ID, nums_to_mask(stim.IQ_readout_chs...))
 
     #Configuring XY channels
     awgXY[Amplitude,stim.IQ_XY_chs...] = 0 #turning off generator in case it was already on
