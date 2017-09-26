@@ -4,7 +4,7 @@ export Ramsey
 
 #CHANGE CHANGE CHANGE CHANGE FIX FIX FIX FIX
 global const DECAY_TIME = 13e-6
-global const PXI_LINE = 2
+global const PXI_LINE = 0
 global const MARKER_CH = 4
 
 """
