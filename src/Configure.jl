@@ -11,9 +11,9 @@ function configure_awgs_general(stim::QubitCharacterization)
     #                                         stim.PXI_line, 0) #4th input: skew
     # @KSerror_handler SD_AOU_clockResetPhase(awgMarker.ID, symbol_to_keysight(:Falling),
     #                                         stim.PXI_line, 0) #4th input: skew
-    waveforms_flush(awgXY)
-    waveforms_flush(awgRead)
-    waveforms_flush(awgMarker)
+    # waveforms_flush(awgXY)
+    # waveforms_flush(awgRead)
+    # waveforms_flush(awgMarker)
     @KSerror_handler SD_AOU_channelPhaseResetMultiple(awgXY.ID, nums_to_mask(stim.IQ_XY_chs...))
     @KSerror_handler SD_AOU_channelPhaseResetMultiple(awgRead.ID, nums_to_mask(stim.IQ_readout_chs...))
     @KSerror_handler SD_AOU_channelPhaseReset(awgMarker.ID, stim.markerCh)
@@ -46,7 +46,7 @@ function configure_awgs_general(stim::QubitCharacterization)
 
     #Configuring marker channel
     awgMarker[OutputMode, stim.IQ_readout_chs...] = :Arbitrary
-    awgMarker[Amplitude,stim.IQ_readout_chs...] = 1
+    awgMarker[Amplitude,stim.IQ_readout_chs...] = 1 #arbitrary marker voltage I chose
     awgMarker[DCOffset,stim.IQ_readout_chs...] = 0
     awgMarker[QueueCycleMode, stim.IQ_readout_chs...] = :Cyclic
     awgMarker[QueueSyncMode, stim.IQ_readout_chs...] = :CLK10
@@ -68,27 +68,27 @@ function configure_awgs_general(stim::QubitCharacterization)
 
     #load marker pulse
     sample_rate = awgMarker[SampleRate]
-    # markers = vcat(make_RectEnvelope(stim.readoutPulse.duration, sample_rate),
-    #                make_Delay(stim.decay_delay, sample_rate),
-    #                make_RectEnvelope(stim.readoutPulse.duration, sample_rate),[0])
-    # markers_wav = Waveform(markers, "Markers_Voltage=1")
-    # (markers_wav in values(awgMarker.waveforms)) || load_waveform(awgMarker, markers_wav, MARKER_PULSE_ID)
     offset = make_RectEnvelope(stim.readoutPulse.duration, sample_rate)
     offset[end] = 0 #this is some dumb ass bug, I don't know why it's here
     offset_wav = Waveform(offset, "Markers_Voltage=1")
-    (offset_wav in values(awgMarker.waveforms)) || load_waveform(awgMarker, offset_wav, MARKER_PULSE_ID)
+    (offset_wav in values(awgMarker.waveforms)) || load_waveform(awgMarker, offset_wav,
+                                                           find_wav_id(awgMarker, "Markers_Voltage=1"))
 
-    #make and load 100ns delay waveforms
-    XY_delay_20ns = Waveform(make_Delay(20e-9, awgXY[SampleRate]), "10ns_delay")
-    (XY_delay_20ns in values(awgXY.waveforms)) || load_waveform(awgXY, XY_delay_20ns, DELAY_ID)
-    read_delay_20ns = Waveform(make_Delay(20e-9, awgRead[SampleRate]), "10ns_delay")
-    (read_delay_20ns in values(awgRead.waveforms)) || load_waveform(awgRead, read_delay_20ns, DELAY_ID)
-    marker_delay_20ns = Waveform(make_Delay(20e-9, awgMarker[SampleRate]), "10ns_delay")
-    (marker_delay_20ns in values(awgMarker.waveforms)) || load_waveform(awgMarker, marker_delay_20ns, DELAY_ID)
+    #make and load 20ns delay waveforms
+    XY_delay_20ns = Waveform(make_Delay(20e-9, awgXY[SampleRate]), "20ns_delay")
+    (XY_delay_20ns in values(awgXY.waveforms)) || load_waveform(awgXY, XY_delay_20ns,
+                                                           find_wav_id(awgXY, "20ns_delay"))
+    read_delay_20ns = Waveform(make_Delay(20e-9, awgRead[SampleRate]), "20ns_delay")
+    (read_delay_20ns in values(awgRead.waveforms)) || load_waveform(awgRead, read_delay_20ns,
+                                                           find_wav_id(awgRead, "20ns_delay"))
+    marker_delay_20ns = Waveform(make_Delay(20e-9, awgMarker[SampleRate]), "20ns_delay")
+    (marker_delay_20ns in values(awgMarker.waveforms)) || load_waveform(awgMarker, marker_delay_20ns,
+                                                           find_wav_id(awgMarker, "20ns_delay"))
 
     #make delay with length=readoutPulse.duration
     readoutPulse_delay = Waveform(make_Delay(stim.readoutPulse.duration, awgXY[SampleRate]), "readoutPulse_delay")
-    (readoutPulse_delay in values(awgXY.waveforms)) || load_waveform(awgXY, readoutPulse_delay, make_wav_id(awgXY))
+    (readoutPulse_delay in values(awgXY.waveforms)) || load_waveform(awgXY, readoutPulse_delay,
+                                                       find_wav_id(awgXY, "readoutPulse_delay"))
     nothing
 end
 
@@ -98,6 +98,7 @@ function configure_awgs(stim::T1)
     awgRead = stim.awgRead
     awgMarker = stim.awgMarker
     πPulse = stim.πPulse
+
     #further configuring XY channels
     XY_I = stim.IQ_XY_chs[1]
     XY_Q = stim.IQ_XY_chs[2]
@@ -110,11 +111,6 @@ function configure_awgs(stim::T1)
     πPulse_env = πPulse.envelope
     (πPulse_env in values(awgXY.waveforms)) || load_waveform(awgXY, πPulse_env,
                                                              make_wav_id(awgXY))
-    #make and load placeholder delays, whose id's will be used in source
-    placeholder = Waveform(make_Delay(100e-9, awgXY[SampleRate]), "placeholder")
-    load_waveform(awgXY, placeholder, make_wav_id(awgXY))
-    load_waveform(awgRead, placeholder, make_wav_id(awgRead))
-    load_waveform(awgMarker, placeholder, make_wav_id(awgMarker))
     nothing
 end
 
@@ -122,6 +118,7 @@ function configure_awgs(stim::Rabi)
     configure_awgs_general(stim)
     awgXY = stim.awgXY
     XYPulse = stim.XYPulse
+
     #further configuring XY channels
     XY_I = stim.IQ_XY_chs[1]
     XY_Q = stim.IQ_XY_chs[2]

@@ -5,9 +5,8 @@ export Ramsey
 global const DECAY_TIME = 40e-6
 global const END_TIME = 40e-6
 global const PXI_LINE = 0
-global const DELAY_ID = 0
 global const MARKER_CH = 4
-global const MARKER_PULSE_ID = 1
+
 
 """
 A Stimulus subtype for doing single qubit characterization experiments, such as

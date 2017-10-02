@@ -18,6 +18,17 @@ function make_wav_id(awg::InsAWGM320XA)
     end
 end
 
+function find_wav_id(awg::InsAWGM320XA, name::AbstractString)
+    id = make_wav_id(awg) #initializing id variable/ giving it value if name can't be found
+    for key in keys(awg.waveforms)
+        if awg.waveforms[key].name == name
+            id = key
+            break
+        end
+    end
+    return id
+end
+
 include("Pulses.jl")
 include("Stimulus.jl")
 include("Response.jl")
