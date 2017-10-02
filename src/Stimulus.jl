@@ -2,10 +2,12 @@ export T1
 export Rabi
 export Ramsey
 
-#CHANGE CHANGE CHANGE CHANGE FIX FIX FIX FIX
-global const DECAY_TIME = 13e-6
+global const DECAY_TIME = 40e-6
+global const END_TIME = 40e-6
 global const PXI_LINE = 0
+global const DELAY_ID = 0
 global const MARKER_CH = 4
+global const MARKER_PULSE_ID = 1
 
 """
 A Stimulus subtype for doing single qubit characterization experiments, such as
@@ -27,6 +29,7 @@ mutable struct T1 <: QubitCharacterization
     πPulse::AnalogPulse
     readoutPulse::DigitalPulse
     decay_delay::Float64
+    end_delay::Float64
 
     #awg configuration information
     IQ_XY_chs::Tuple{Int,Int}
@@ -39,12 +42,12 @@ mutable struct T1 <: QubitCharacterization
     axislabel::String
 
     T1(awgXY, awgRead, awgMarker, πPulse, readoutPulse, IQ_XY_chs, IQ_readout_chs) =
-        new(awgXY, awgRead, awgMarker, πPulse, readoutPulse, DECAY_TIME, IQ_XY_chs,
-            IQ_readout_chs, MARKER_CHANNEL, PXI_LINE, :t1delay, "Delay")
+        new(awgXY, awgRead, awgMarker, πPulse, readoutPulse, DECAY_TIME, END_TIME, IQ_XY_chs,
+            IQ_readout_chs, MARKER_CH, PXI_LINE, :t1delay, "Delay")
 
-    T1(awgXY, awgRead, awgMarker, πPulse, readoutPulse, decay_delay, IQ_XY_chs,
+    T1(awgXY, awgRead, awgMarker, πPulse, readoutPulse, decay_delay, end_delay, IQ_XY_chs,
         IQ_readout_chs, markerCh, PXI_line, axisname, axislabel) = new(awgXY, awgRead,
-        awgMarker, πPulse, readoutPulse, decay_delay, IQ_XY_chs, IQ_readout_chs,
+        awgMarker, πPulse, readoutPulse, decay_delay, end_delay, IQ_XY_chs, IQ_readout_chs,
         markerCh, PXI_line, axisname, axislabel)
 end
 
@@ -55,9 +58,10 @@ mutable struct Rabi <: QubitCharacterization
     awgMarker::InsAWGM320XA
 
     #pulses
-    XY_pulse::AnalogPulse #meant to hold IF_freq and
+    XYPulse::AnalogPulse #meant to hold IF_freq and
     readoutPulse::DigitalPulse
     decay_delay::Float64
+    end_delay::Float64
 
     #awg configuration information
     IQ_XY_chs::Tuple{Int,Int}
@@ -69,13 +73,13 @@ mutable struct Rabi <: QubitCharacterization
     axisname::Symbol
     axislabel::String
 
-    Rabi((awgXY, awgRead, awgMarker, XY_pulse, readoutPulse, IQ_XY_chs, IQ_readout_chs) =
-        new(awgXY, awgRead, awgMarker, XY_pulse, readoutPulse, DECAY_TIME, IQ_XY_chs,
-            IQ_readout_chs, MARKER_CHANNEL, PXI_line, :xyduration, "XY Pulse Duration")
+    Rabi(awgXY, awgRead, awgMarker, XYPulse, readoutPulse, IQ_XY_chs, IQ_readout_chs) =
+        new(awgXY, awgRead, awgMarker, XYPulse, readoutPulse, DECAY_TIME, END_TIME, IQ_XY_chs,
+            IQ_readout_chs, MARKER_CH, PXI_LINE, :xyduration, "XY Pulse Duration")
 
-    Rabi(awgXY, awgRead, awgMarker, XY_pulse, readoutPulse, decay_delay, IQ_XY_chs,
+    Rabi(awgXY, awgRead, awgMarker, XYPulse, readoutPulse, decay_delay, end_delay, IQ_XY_chs,
         IQ_readout_chs, markerCh, PXI_line, axisname, axislabel) = new(awgXY, awgRead,
-        awgMarker, XY_pulse, readoutPulse, decay_delay, IQ_XY_chs, IQ_readout_chs,
+        awgMarker, XYPulse, readoutPulse, decay_delay, end_delay, IQ_XY_chs, IQ_readout_chs,
         markerCh, PXI_line, axisname, axislabel)
 end
 
@@ -89,6 +93,7 @@ mutable struct Ramsey <: QubitCharacterization
     π_2Pulse::AnalogPulse
     readoutPulse::DigitalPulse
     decay_delay::Float64
+    end_delay::Float64
 
     #awg configuration information
     IQ_XY_chs::Tuple{Int,Int}
@@ -101,12 +106,12 @@ mutable struct Ramsey <: QubitCharacterization
     axislabel::String
 
     Ramsey(awgXY, awgRead, awgMarker, π_2Pulse, readoutPulse, IQ_XY_chs, IQ_readout_chs) =
-        new(awgXY, awgRead, awgMarker, π_2Pulse, readoutPulse, DECAY_TIME, IQ_XY_chs,
-            IQ_readout_chs, MARKER_CHANNEL, PXI_LINE, :ramseydelay, "Free Evolution Time")
+        new(awgXY, awgRead, awgMarker, π_2Pulse, readoutPulse, DECAY_TIME, END_TIME, IQ_XY_chs,
+            IQ_readout_chs, MARKER_CH, PXI_LINE, :ramseydelay, "Free Evolution Time")
 
-    Ramsey(awgXY, awgRead, awgMarker, π_2Pulse, readoutPulse, decay_delay, IQ_XY_chs,
+    Ramsey(awgXY, awgRead, awgMarker, π_2Pulse, readoutPulse, decay_delay, end_delay, IQ_XY_chs,
         IQ_readout_chs, markerCh, PXI_line, axisname, axislabel) = new(awgXY, awgRead,
-        awgMarker, π_2Pulse, readoutPulse, decay_delay, IQ_XY_chs, IQ_readout_chs,
+        awgMarker, π_2Pulse, readoutPulse, decay_delay, end_delay, IQ_XY_chs, IQ_readout_chs,
         markerCh, PXI_line, axisname, axislabel)
 end
 

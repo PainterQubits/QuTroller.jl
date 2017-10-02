@@ -6,6 +6,10 @@ export RectEnvelope
 export AnalogPulse
 export DigitalPulse
 
+export make_RectEnvelope
+export make_Delay
+export make_CosEnvelope
+
 """
 Subtypes of this abstract type are meant to distiguish between the kinds of windowing
 to apply to a pulse.
