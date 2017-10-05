@@ -97,6 +97,26 @@ function DigitalPulse(IF_freq::Real, amplitude::Real, duration::Real, ::Type{Cos
                       sample_rate::Real, IF_phase::Real = 0; name = "CosEnvelope_"*
                       string(amplitude)*"_"*string(duration))
     env = make_CosEnvelope(duration, sample_rate)
+    pulse = DigitalPulse_general(IF_freq, amplitude, duration, env, sample_rate,
+                                 IF_phase, name)
+    return pulse
+end
+
+function DigitalPulse(IF_freq::Real, amplitude::Real, duration::Real, ::Type{RectEnvelope},
+                      sample_rate::Real, IF_phase::Real = 0; name = "CosEnvelope_"*
+                      string(amplitude)*"_"*string(duration))
+    env = make_RectEnvelope(duration, sample_rate)
+    pulse = DigitalPulse_general(IF_freq, amplitude, duration, env, sample_rate,
+                                 IF_phase, name)
+    return pulse
+end
+
+
+#helper functions
+
+function DigitalPulse_general(IF_freq::Real, amplitude::Real, duration::Real,
+                              env::Vector{Float64}, sample_rate::Real, IF_phase::Real,
+                              name::AbstractString)
     time_step = 1/sample_rate; t = collect(0:time_step:duration)
     IF_signal = exp.(im*(2π*IF_freq*t + IF_phase))
     full_pulse = IF_signal.*env
@@ -106,9 +126,8 @@ function DigitalPulse(IF_freq::Real, amplitude::Real, duration::Real, ::Type{Cos
     Q_wav = Waveform(Q_pulse, "Q_"*name)
     pulse = DigitalPulse(IF_freq, amplitude, IF_phase, duration, I_wav, Q_wav)
     return pulse
-end
+ end
 
-#helper functions
 function make_CosEnvelope(duration::Real, sample_rate::Real)
     d = duration
     time_step = 1/sample_rate
@@ -120,7 +139,7 @@ end
 function make_RectEnvelope(duration::Real, sample_rate::Real)
     d = duration
     time_step = 1/sample_rate
-    num_points = round(duration/time_step)
+    t = collect(0:time_step:d); num_points = size(t)[1]
     env = ones(num_points)
     return env
 end
