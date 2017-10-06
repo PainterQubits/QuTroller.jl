@@ -17,12 +17,11 @@ function measure(resp::IQ_FPGAResponse)
         dig[DAQCycles, ch] = trials
     end
 
-    mask = chs_to_mask(resp.I_ch, resp.Q_ch)
-    @KSerror_handler SD_AIN_DAQstartMultiple(dig.ID, mask)
-    while (SD_AIN_DAQcounterRead(dig.ID, resp.I_ch) < trials || SD_AIN_DAQcounterRead(dig.ID, resp.Q_ch) < trials)
+    daq_start(dig, resp.I_ch, resp.Q_ch)
+    while (daq_counter(dig, resp.I_ch) < trials || daq_counter(dig, resp.Q_ch) < trials)
         sleep(0.001) #change
     end
-    I_data = @KSerror_handler SD_AIN_DAQread(dig.ID, resp.I_ch, trials, timeout)
-    Q_data = @KSerror_handler SD_AIN_DAQread(dig.ID, resp.Q_ch, trials, timeout)
+    I_data = daq_read(dig.ID, resp.I_ch, trials, timeout)
+    Q_data = daq_read(dig.ID, resp.Q_ch, trials, timeout)
     return
 end

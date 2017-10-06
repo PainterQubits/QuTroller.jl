@@ -6,6 +6,10 @@ export RectEnvelope
 export AnalogPulse
 export DigitalPulse
 
+export make_RectEnvelope
+export make_Delay
+export make_CosEnvelope
+
 """
 Subtypes of this abstract type are meant to distiguish between the kinds of windowing
 to apply to a pulse.
@@ -32,7 +36,7 @@ mutable struct AnalogPulse <: Pulse
     duration::Float64
     envelope::Waveform
 
-    AnalogPulse(IF_freq, amplitude, IF_phase) = new(IF_freq, amplitude, IF_phase)    
+    AnalogPulse(IF_freq, amplitude, IF_phase) = new(IF_freq, amplitude, IF_phase)
 
     AnalogPulse(IF_freq, amplitude, IF_phase, duration) =
                new(IF_freq, amplitude, IF_phase, duration)
@@ -74,7 +78,7 @@ I and Q channels of the AWG.
 """
 mutable struct DigitalPulse <: Pulse
     IF_freq::Float64
-    amplitude::Float64
+    amplitude::Float64 #loaded waveforms are normalized, this field is used to set actual amplitude
     IF_phase::Float64
     duration::Float64
     I_waveform::Waveform
@@ -90,9 +94,29 @@ mutable struct DigitalPulse <: Pulse
 end
 
 function DigitalPulse(IF_freq::Real, amplitude::Real, duration::Real, ::Type{CosEnvelope},
-                      sample_rate::Real, IF_phase::Real = 0; name = name = "CosEnvelope_"*
+                      sample_rate::Real, IF_phase::Real = 0; name = "CosEnvelope_"*
                       string(amplitude)*"_"*string(duration))
     env = make_CosEnvelope(duration, sample_rate)
+    pulse = DigitalPulse_general(IF_freq, amplitude, duration, env, sample_rate,
+                                 IF_phase, name)
+    return pulse
+end
+
+function DigitalPulse(IF_freq::Real, amplitude::Real, duration::Real, ::Type{RectEnvelope},
+                      sample_rate::Real, IF_phase::Real = 0; name = "CosEnvelope_"*
+                      string(amplitude)*"_"*string(duration))
+    env = make_RectEnvelope(duration, sample_rate)
+    pulse = DigitalPulse_general(IF_freq, amplitude, duration, env, sample_rate,
+                                 IF_phase, name)
+    return pulse
+end
+
+
+#helper functions
+
+function DigitalPulse_general(IF_freq::Real, amplitude::Real, duration::Real,
+                              env::Vector{Float64}, sample_rate::Real, IF_phase::Real,
+                              name::AbstractString)
     time_step = 1/sample_rate; t = collect(0:time_step:duration)
     IF_signal = exp.(im*(2π*IF_freq*t + IF_phase))
     full_pulse = IF_signal.*env
@@ -102,9 +126,8 @@ function DigitalPulse(IF_freq::Real, amplitude::Real, duration::Real, ::Type{Cos
     Q_wav = Waveform(Q_pulse, "Q_"*name)
     pulse = DigitalPulse(IF_freq, amplitude, IF_phase, duration, I_wav, Q_wav)
     return pulse
-end
+ end
 
-#helper functions
 function make_CosEnvelope(duration::Real, sample_rate::Real)
     d = duration
     time_step = 1/sample_rate
@@ -116,7 +139,7 @@ end
 function make_RectEnvelope(duration::Real, sample_rate::Real)
     d = duration
     time_step = 1/sample_rate
-    num_points = round(duration/time_step)
+    t = collect(0:time_step:d); num_points = size(t)[1]
     env = ones(num_points)
     return env
 end
