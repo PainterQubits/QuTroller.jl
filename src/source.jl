@@ -24,39 +24,39 @@ function source(stim::T1, τ::Real)
 
     #prepping AWG for sourcing: stopping AWG in case it wasn't stopped before, flushing
     #queue to reset it, setting the PXI_line to off
-    @KSerror_handler SD_AOU_AWGstopMultiple(awgXY.ID, nums_to_mask(stim.IQ_XY_chs...))
-    @KSerror_handler SD_AOU_AWGstopMultiple(awgRead.ID, nums_to_mask(stim.IQ_readout_chs...))
-    @KSerror_handler SD_AOU_AWGstop(awgMarker.ID, stim.markerCh)
+    awg_stop(awgXY, stim.IQ_XY_chs...)
+    awg_stop(awgRead, stim.IQ_readout_chs...)
+    awg_stop(awgMarker, stim.markerCh)
     SD_Module_PXItriggerWrite(awgRead.ID, stim.PXI_line, 1)
     queue_flush.(awgXY, stim.IQ_XY_chs)
     queue_flush.(awgRead, stim.IQ_readout_chs)
     queue_flush(awgMarker, stim.markerCh)
 
     #awgXY queueing
-    queue_waveform.(awgXY, πPulse.envelope, stim.IQ_XY_chs, :External)
-    queue_waveform.(awgXY, τ_delay, stim.IQ_XY_chs, :Auto)
-    queue_waveform.(awgXY, readoutPulse_delay_id, stim.IQ_XY_chs, :Auto)
-    queue_waveform.(awgXY, delay_id_XY, stim.IQ_XY_chs, :Auto, repetitions = decay_num_20ns)
-    queue_waveform.(awgXY, readoutPulse_delay_id, stim.IQ_XY_chs, :Auto)
-    queue_waveform.(awgXY, delay_id_XY, stim.IQ_XY_chs, :Auto, repetitions = end_num_20ns)
+    queue_waveform.(awgXY, stim.IQ_XY_chs, πPulse.envelope, :External)
+    queue_waveform.(awgXY, stim.IQ_XY_chs, τ_delay, :Auto)
+    queue_waveform.(awgXY, stim.IQ_XY_chs, readoutPulse_delay_id, :Auto)
+    queue_waveform.(awgXY, stim.IQ_XY_chs, delay_id_XY,  :Auto, repetitions = decay_num_20ns)
+    queue_waveform.(awgXY, stim.IQ_XY_chs, readoutPulse_delay_id,  :Auto)
+    queue_waveform.(awgXY, stim.IQ_XY_chs, delay_id_XY,  :Auto, repetitions = end_num_20ns)
 
     #awgRead queueing
     read_I = stim.IQ_readout_chs[1]
     read_Q = stim.IQ_readout_chs[2]
-    queue_waveform.(awgRead, read_T1_delay, stim.IQ_readout_chs, :External, delay = read_fudge)
-    queue_waveform(awgRead, readoutPulse.I_waveform, read_I, :Auto)
-    queue_waveform(awgRead, readoutPulse.Q_waveform, read_Q, :Auto)
-    queue_waveform.(awgRead,delay_id_Read, stim.IQ_readout_chs, :Auto, repetitions = decay_num_20ns)
-    queue_waveform(awgRead, readoutPulse.I_waveform, read_I, :Auto)
-    queue_waveform(awgRead, readoutPulse.Q_waveform, read_Q, :Auto)
-    queue_waveform.(awgRead, delay_id_Read, stim.IQ_readout_chs, :Auto, repetitions = end_num_20ns-Int(read_fudge/2))
+    queue_waveform.(awgRead, stim.IQ_readout_chs, read_T1_delay, :External, delay = read_fudge)
+    queue_waveform(awgRead, read_I, readoutPulse.I_waveform, :Auto)
+    queue_waveform(awgRead, read_Q, readoutPulse.Q_waveform, :Auto)
+    queue_waveform.(awgRead, stim.IQ_readout_chs, delay_id_Read, :Auto, repetitions = decay_num_20ns)
+    queue_waveform(awgRead, read_I, readoutPulse.I_waveform, :Auto)
+    queue_waveform(awgRead, read_Q, readoutPulse.Q_waveform,  :Auto)
+    queue_waveform.(awgRead, stim.IQ_readout_chs, delay_id_Read,  :Auto, repetitions = end_num_20ns-Int(read_fudge/2))
 
     #awgMarker queueing
-    queue_waveform.(awgMarker, marker_T1_delay, stim.markerCh, :External)
-    queue_waveform(awgMarker, markerPulseID, stim.markerCh, :Auto)
-    queue_waveform(awgMarker, delay_id_Marker, stim.markerCh, :Auto, repetitions = decay_num_20ns)
-    queue_waveform(awgMarker, markerPulseID, stim.markerCh, :Auto)
-    queue_waveform.(awgMarker, delay_id_Marker, stim.markerCh, :Auto, repetitions = end_num_20ns)
+    queue_waveform.(awgMarker, stim.markerCh, marker_T1_delay, :External)
+    queue_waveform(awgMarker, stim.markerCh, markerPulseID, :Auto)
+    queue_waveform(awgMarker, stim.markerCh, delay_id_Marker, :Auto, repetitions = decay_num_20ns)
+    queue_waveform(awgMarker, stim.markerCh, markerPulseID, :Auto)
+    queue_waveform.(awgMarker, stim.markerCh, delay_id_Marker, :Auto, repetitions = end_num_20ns)
 
     #Start AWGs
     awg_start(awgRead, stim.IQ_readout_chs...)
@@ -98,38 +98,38 @@ function source(stim::Rabi, t::Real)
 
     #prepping AWG for sourcing: stopping AWG in case it wasn't stopped before, flushing
     #queue to reset it, setting the PXI_line to off
-    @KSerror_handler SD_AOU_AWGstopMultiple(awgXY.ID, nums_to_mask(stim.IQ_XY_chs...))
-    @KSerror_handler SD_AOU_AWGstopMultiple(awgRead.ID, nums_to_mask(stim.IQ_readout_chs...))
-    @KSerror_handler SD_AOU_AWGstop(awgMarker.ID, stim.markerCh)
+    awg_stop(awgXY, stim.IQ_XY_chs...)
+    awg_stop(awgRead, stim.IQ_readout_chs...)
+    awg_stop(awgMarker, stim.markerCh)
     SD_Module_PXItriggerWrite(awgRead.ID, stim.PXI_line, 1)
     queue_flush.(awgXY, stim.IQ_XY_chs)
     queue_flush.(awgRead, stim.IQ_readout_chs)
     queue_flush(awgMarker, stim.markerCh)
 
     #awgXY queueing
-    queue_waveform.(awgXY, XYPulse.envelope, stim.IQ_XY_chs, :External)
-    queue_waveform.(awgXY, readoutPulse_delay_id, stim.IQ_XY_chs, :Auto)
-    queue_waveform.(awgXY, delay_id_XY, stim.IQ_XY_chs, :Auto, repetitions = decay_num_20ns)
-    queue_waveform.(awgXY, readoutPulse_delay_id, stim.IQ_XY_chs, :Auto)
-    queue_waveform.(awgXY, delay_id_XY, stim.IQ_XY_chs, :Auto, repetitions = end_num_20ns)
+    queue_waveform.(awgXY, stim.IQ_XY_chs, XYPulse.envelope, :External)
+    queue_waveform.(awgXY, stim.IQ_XY_chs, readoutPulse_delay_id, :Auto)
+    queue_waveform.(awgXY, stim.IQ_XY_chs, delay_id_XY, :Auto, repetitions = decay_num_20ns)
+    queue_waveform.(awgXY, stim.IQ_XY_chs, readoutPulse_delay_id, :Auto)
+    queue_waveform.(awgXY, stim.IQ_XY_chs, delay_id_XY, :Auto, repetitions = end_num_20ns)
 
     #awgRead queueing
     read_I = stim.IQ_readout_chs[1]
     read_Q = stim.IQ_readout_chs[2]
-    queue_waveform.(awgRead, read_Rabi_delay, stim.IQ_readout_chs, :External, delay = read_fudge)
-    queue_waveform(awgRead, readoutPulse.I_waveform, read_I, :Auto)
-    queue_waveform(awgRead, readoutPulse.Q_waveform, read_Q, :Auto)
-    queue_waveform.(awgRead,delay_id_Read, stim.IQ_readout_chs, :Auto, repetitions = decay_num_20ns)
-    queue_waveform(awgRead, readoutPulse.I_waveform, read_I, :Auto)
-    queue_waveform(awgRead, readoutPulse.Q_waveform, read_Q, :Auto)
-    queue_waveform.(awgRead, delay_id_Read, stim.IQ_readout_chs, :Auto, repetitions = end_num_20ns-Int(read_fudge/2))
+    queue_waveform.(awgRead, stim.IQ_readout_chs, read_Rabi_delay, :External, delay = read_fudge)
+    queue_waveform(awgRead, read_I, readoutPulse.I_waveform, :Auto)
+    queue_waveform(awgRead, read_Q, readoutPulse.Q_waveform, :Auto)
+    queue_waveform.(awgRead, stim.IQ_readout_chs, delay_id_Read, :Auto, repetitions = decay_num_20ns)
+    queue_waveform(awgRead, read_I, readoutPulse.I_waveform, :Auto)
+    queue_waveform(awgRead, read_Q, readoutPulse.Q_waveform, :Auto)
+    queue_waveform.(awgRead, stim.IQ_readout_chs, delay_id_Read, :Auto, repetitions = end_num_20ns-Int(read_fudge/2))
 
     #awgMarker queueing
-    queue_waveform.(awgMarker, marker_Rabi_delay, stim.markerCh, :External)
-    queue_waveform(awgMarker, markerPulseID, stim.markerCh, :Auto)
-    queue_waveform(awgMarker, delay_id_Marker, stim.markerCh, :Auto, repetitions = decay_num_20ns)
-    queue_waveform(awgMarker, markerPulseID, stim.markerCh, :Auto)
-    queue_waveform.(awgMarker, delay_id_Marker, stim.markerCh, :Auto, repetitions = end_num_20ns)
+    queue_waveform.(awgMarker, stim.markerCh, marker_Rabi_delay, :External)
+    queue_waveform(awgMarker, stim.markerCh, markerPulseID,  :Auto)
+    queue_waveform(awgMarker, stim.markerCh, delay_id_Marker, :Auto, repetitions = decay_num_20ns)
+    queue_waveform(awgMarker, stim.markerCh, markerPulseID, :Auto)
+    queue_waveform.(awgMarker, stim.markerCh, delay_id_Marker, :Auto, repetitions = end_num_20ns)
 
     #Start AWGs
     awg_start(awgRead, stim.IQ_readout_chs...)
@@ -165,40 +165,40 @@ function source(stim::Ramsey, τ::Real)
 
     #prepping AWG for sourcing: stopping AWG in case it wasn't stopped before, flushing
     #queue to reset it, setting the PXI_line to off
-    @KSerror_handler SD_AOU_AWGstopMultiple(awgXY.ID, nums_to_mask(stim.IQ_XY_chs...))
-    @KSerror_handler SD_AOU_AWGstopMultiple(awgRead.ID, nums_to_mask(stim.IQ_readout_chs...))
-    @KSerror_handler SD_AOU_AWGstop(awgMarker.ID, stim.markerCh)
+    awg_stop(awgXY, stim.IQ_XY_chs...)
+    awg_stop(awgRead, stim.IQ_readout_chs...)
+    awg_stop(awgMarker, stim.markerCh)
     SD_Module_PXItriggerWrite(awgRead.ID, stim.PXI_line, 1)
     queue_flush.(awgXY, stim.IQ_XY_chs)
     queue_flush.(awgRead, stim.IQ_readout_chs)
     queue_flush(awgMarker, stim.markerCh)
 
     #awgXY queueing
-    queue_waveform.(awgXY, π_2Pulse.envelope, stim.IQ_XY_chs, :External)
-    queue_waveform.(awgXY, τ_delay, stim.IQ_XY_chs, :Auto)
-    queue_waveform.(awgXY, π_2Pulse.envelope, stim.IQ_XY_chs, :Auto)
-    queue_waveform.(awgXY, readoutPulse_delay_id, stim.IQ_XY_chs, :Auto)
-    queue_waveform.(awgXY, delay_id_XY, stim.IQ_XY_chs, :Auto, repetitions = decay_num_20ns)
-    queue_waveform.(awgXY, readoutPulse_delay_id, stim.IQ_XY_chs, :Auto)
-    queue_waveform.(awgXY, delay_id_XY, stim.IQ_XY_chs, :Auto, repetitions = end_num_20ns)
+    queue_waveform.(awgXY, stim.IQ_XY_chs, π_2Pulse.envelope, :External)
+    queue_waveform.(awgXY, stim.IQ_XY_chs, τ_delay, :Auto)
+    queue_waveform.(awgXY, stim.IQ_XY_chs, π_2Pulse.envelope, :Auto)
+    queue_waveform.(awgXY, stim.IQ_XY_chs, readoutPulse_delay_id, :Auto)
+    queue_waveform.(awgXY, stim.IQ_XY_chs, delay_id_XY, :Auto, repetitions = decay_num_20ns)
+    queue_waveform.(awgXY, stim.IQ_XY_chs, readoutPulse_delay_id, :Auto)
+    queue_waveform.(awgXY, stim.IQ_XY_chs, delay_id_XY, :Auto, repetitions = end_num_20ns)
 
     #awgRead queueing
     read_I = stim.IQ_readout_chs[1]
     read_Q = stim.IQ_readout_chs[2]
-    queue_waveform.(awgRead, read_Ramsey_delay, stim.IQ_readout_chs, :External, delay = read_fudge)
-    queue_waveform(awgRead, readoutPulse.I_waveform, read_I, :Auto)
-    queue_waveform(awgRead, readoutPulse.Q_waveform, read_Q, :Auto)
-    queue_waveform.(awgRead,delay_id_Read, stim.IQ_readout_chs, :Auto, repetitions = decay_num_20ns)
-    queue_waveform(awgRead, readoutPulse.I_waveform, read_I, :Auto)
-    queue_waveform(awgRead, readoutPulse.Q_waveform, read_Q, :Auto)
-    queue_waveform.(awgRead, delay_id_Read, stim.IQ_readout_chs, :Auto, repetitions = end_num_20ns-Int(read_fudge/2))
+    queue_waveform.(awgRead, stim.IQ_readout_chs, read_Ramsey_delay, :External, delay = read_fudge)
+    queue_waveform(awgRead, read_I, readoutPulse.I_waveform, :Auto)
+    queue_waveform(awgRead, read_Q, readoutPulse.Q_waveform, :Auto)
+    queue_waveform.(awgRead, stim.IQ_readout_chs, delay_id_Read, :Auto, repetitions = decay_num_20ns)
+    queue_waveform(awgRead, read_I, readoutPulse.I_waveform, :Auto)
+    queue_waveform(awgRead, read_Q, readoutPulse.Q_waveform, :Auto)
+    queue_waveform.(awgRead, stim.IQ_readout_chs, delay_id_Read, :Auto, repetitions = end_num_20ns-Int(read_fudge/2))
 
     #awgMarker queueing
-    queue_waveform.(awgMarker, marker_Ramsey_delay, stim.markerCh, :External)
-    queue_waveform(awgMarker, markerPulseID, stim.markerCh, :Auto)
-    queue_waveform(awgMarker, delay_id_Marker, stim.markerCh, :Auto, repetitions = decay_num_20ns)
-    queue_waveform(awgMarker, markerPulseID, stim.markerCh, :Auto)
-    queue_waveform.(awgMarker, delay_id_Marker, stim.markerCh, :Auto, repetitions = end_num_20ns)
+    queue_waveform.(awgMarker, stim.markerCh, marker_Ramsey_delay, :External)
+    queue_waveform(awgMarker, stim.markerCh, markerPulseID, :Auto)
+    queue_waveform(awgMarker, stim.markerCh, delay_id_Marker, :Auto, repetitions = decay_num_20ns)
+    queue_waveform(awgMarker, stim.markerCh, markerPulseID, :Auto)
+    queue_waveform.(awgMarker, stim.markerCh, delay_id_Marker, :Auto, repetitions = end_num_20ns)
 
     #Start AWGs
     awg_start(awgRead, stim.IQ_readout_chs...)

@@ -11,9 +11,6 @@ function configure_awgs_general(stim::QubitCharacterization)
     #                                         stim.PXI_line, 0) #4th input: skew
     # @KSerror_handler SD_AOU_clockResetPhase(awgMarker.ID, symbol_to_keysight(:Falling),
     #                                         stim.PXI_line, 0) #4th input: skew
-    waveforms_flush(awgXY)
-    waveforms_flush(awgRead)
-    waveforms_flush(awgMarker)
     @KSerror_handler SD_AOU_channelPhaseResetMultiple(awgXY.ID, nums_to_mask(stim.IQ_XY_chs...))
     @KSerror_handler SD_AOU_channelPhaseResetMultiple(awgRead.ID, nums_to_mask(stim.IQ_readout_chs...))
     @KSerror_handler SD_AOU_channelPhaseReset(awgMarker.ID, stim.markerCh)
