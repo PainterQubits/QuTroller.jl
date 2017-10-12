@@ -102,7 +102,7 @@ function configure_awgs(stim::T1)
     awgXY[AmpModGain, stim.IQ_XY_chs...] = πPulse.amplitude
     awgXY[FGFrequency, stim.IQ_XY_chs...] = πPulse.IF_freq
     awgXY[FGPhase, XY_I] = πPulse.IF_phase
-    awgXY[FGPhase, XY_Q] = πPulse.IF_phase + π/2
+    awgXY[FGPhase, XY_Q] = πPulse.IF_phase - π/2 #cos(phi -pi/2) = sin(phi)
 
     #loading πPulse waveforms
     πPulse_env = πPulse.envelope
@@ -122,7 +122,7 @@ function configure_awgs(stim::Rabi)
     awgXY[AmpModGain, stim.IQ_XY_chs...] = XYPulse.amplitude
     awgXY[FGFrequency, stim.IQ_XY_chs...] = XYPulse.IF_freq
     awgXY[FGPhase, XY_I] = XYPulse.IF_phase
-    awgXY[FGPhase, XY_Q] = XYPulse.IF_phase + π/2
+    awgXY[FGPhase, XY_Q] = XYPulse.IF_phase - π/2
     nothing
 end
 
