@@ -1,5 +1,15 @@
 export configure_awgs
 
+"""
+        configure_awgs(stim::T1)
+        configure_awgs(stim::Rabi)
+        configure_awgs(stim::Ramsey)
+
+Function to configure AWG channels and load appropriate waveforms prior to
+sourcing of Stimulus `QubitCharacterization` objects.
+"""
+function configure_awgs end
+
 function configure_awgs_general(stim::QubitCharacterization)
     awgXY = stim.awgXY
     awgRead = stim.awgRead
