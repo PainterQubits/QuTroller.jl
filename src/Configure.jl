@@ -11,6 +11,8 @@ sourcing of Stimulus `QubitCharacterization` objects.
 function configure_awgs end
 
 function configure_awgs_general(stim::QubitCharacterization)
+    (rem(round(stim.readoutPulse.duration/1e-9), 10) != 0.0) &&
+                        error("Readout pulse length must be in mutiple of 10ns")
     awgXY = stim.awgXY
     awgRead = stim.awgRead
     awgMarker = stim.awgMarker
@@ -63,39 +65,19 @@ function configure_awgs_general(stim::QubitCharacterization)
     awgMarker[AmpModMode, stim.IQ_readout_chs...] = :Off
     awgMarker[AngModMode, stim.IQ_readout_chs...] = :Off
 
-    #load readout waveforms into awgRead if not already loaded
-    read_I = stim.IQ_readout_chs[1]
-    read_Q = stim.IQ_readout_chs[2]
-    read_I_wav = stim.readoutPulse.I_waveform
-    read_Q_wav = stim.readoutPulse.Q_waveform
-    (read_I_wav in values(awgRead.waveforms)) || load_waveform(awgRead, read_I_wav,
-                                                               make_wav_id(awgRead))
-    (read_Q_wav in values(awgRead.waveforms)) || load_waveform(awgRead, read_Q_wav,
-                                                               make_wav_id(awgRead))
-
-    #load marker pulse
-    sample_rate = awgMarker[SampleRate]
-    offset = make_RectEnvelope(stim.readoutPulse.duration, sample_rate)
-    offset[end] = 0 #this is some dumb ass bug, I don't know why it's here
-    offset_wav = Waveform(offset, "Markers_Voltage=1")
-    (offset_wav in values(awgMarker.waveforms)) || load_waveform(awgMarker, offset_wav,
-                                                           find_wav_id(awgMarker, "Markers_Voltage=1"))
-
-    #make and load 20ns delay waveforms
-    XY_delay_20ns = Waveform(make_Delay(20e-9, awgXY[SampleRate]), "20ns_delay")
-    (XY_delay_20ns in values(awgXY.waveforms)) || load_waveform(awgXY, XY_delay_20ns,
-                                                           find_wav_id(awgXY, "20ns_delay"))
-    read_delay_20ns = Waveform(make_Delay(20e-9, awgRead[SampleRate]), "20ns_delay")
-    (read_delay_20ns in values(awgRead.waveforms)) || load_waveform(awgRead, read_delay_20ns,
-                                                           find_wav_id(awgRead, "20ns_delay"))
-    marker_delay_20ns = Waveform(make_Delay(20e-9, awgMarker[SampleRate]), "20ns_delay")
-    (marker_delay_20ns in values(awgMarker.waveforms)) || load_waveform(awgMarker, marker_delay_20ns,
-                                                           find_wav_id(awgMarker, "20ns_delay"))
-
-    #make delay with length=readoutPulse.duration
-    readoutPulse_delay = Waveform(make_Delay(stim.readoutPulse.duration, awgXY[SampleRate]), "readoutPulse_delay")
-    (readoutPulse_delay in values(awgXY.waveforms)) || load_waveform(awgXY, readoutPulse_delay,
-                                                       find_wav_id(awgXY, "readoutPulse_delay"))
+    #loading readout, marker, and delay pulses
+    load_pulse(awgRead, stim.readoutPulse)
+    marker_pulse = DCPulse(1, stim.readoutPulse.duration, RectEdge, awgMarker[SampleRate],
+                           name = "Markers_Voltage=1")
+    load_pulse(awgMarker, marker_pulse, "Markers_Voltage=1")
+    readoutPulse_delay = DelayPulse(stim.readoutPulse.duration, awgXY[SampleRate], name = "readoutPulse_delay")
+    load_pulse(awgXY, readoutPulse_delay, "readoutPulse_delay")
+    XY_delay_20ns = DelayPulse(20e-9, awgXY[SampleRate], name = "20ns_delay")
+    load_pulse(awgXY, XY_delay_20ns, "20ns_delay")
+    read_delay_20ns = DelayPulse(20e-9, awgRead[SampleRate], name = "20ns_delay")
+    load_pulse(awgRead, read_delay_20ns, "20ns_delay")
+    marker_delay_20ns = DelayPulse(20e-9, awgMarker[SampleRate], name = "20ns_delay")
+    load_pulse(awgMarker, marker_delay_20ns, "20ns_delay")
     nothing
 end
 
@@ -105,6 +87,7 @@ function configure_awgs(stim::T1)
     awgRead = stim.awgRead
     awgMarker = stim.awgMarker
     πPulse = stim.πPulse
+    load_pulse(awgXY, πPulse)
 
     #further configuring XY channels
     XY_I = stim.IQ_XY_chs[1]
@@ -113,11 +96,6 @@ function configure_awgs(stim::T1)
     awgXY[FGFrequency, stim.IQ_XY_chs...] = πPulse.IF_freq
     awgXY[FGPhase, XY_I] = πPulse.IF_phase
     awgXY[FGPhase, XY_Q] = πPulse.IF_phase - π/2 #cos(phi -pi/2) = sin(phi)
-
-    #loading πPulse waveforms
-    πPulse_env = πPulse.envelope
-    (πPulse_env in values(awgXY.waveforms)) || load_waveform(awgXY, πPulse_env,
-                                                             make_wav_id(awgXY))
     nothing
 end
 

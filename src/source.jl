@@ -1,4 +1,5 @@
 function source(stim::T1, τ::Real)
+    τ<20e-9 && error("τ must be at least 20ns")
     #renaming for convinience
     awgXY = stim.awgXY
     awgRead = stim.awgRead
@@ -52,11 +53,11 @@ function source(stim::T1, τ::Real)
     queue_waveform.(awgRead, stim.IQ_readout_chs, delay_id_Read,  :Auto, repetitions = end_num_20ns-Int(read_fudge/2))
 
     #awgMarker queueing
-    queue_waveform.(awgMarker, stim.markerCh, marker_T1_delay, :External)
+    queue_waveform(awgMarker, stim.markerCh, marker_T1_delay, :External)
     queue_waveform(awgMarker, stim.markerCh, markerPulseID, :Auto)
     queue_waveform(awgMarker, stim.markerCh, delay_id_Marker, :Auto, repetitions = decay_num_20ns)
     queue_waveform(awgMarker, stim.markerCh, markerPulseID, :Auto)
-    queue_waveform.(awgMarker, stim.markerCh, delay_id_Marker, :Auto, repetitions = end_num_20ns)
+    queue_waveform(awgMarker, stim.markerCh, delay_id_Marker, :Auto, repetitions = end_num_20ns)
 
     #Start AWGs
     awg_start(awgRead, stim.IQ_readout_chs...)
@@ -125,11 +126,11 @@ function source(stim::Rabi, t::Real)
     queue_waveform.(awgRead, stim.IQ_readout_chs, delay_id_Read, :Auto, repetitions = end_num_20ns-Int(read_fudge/2))
 
     #awgMarker queueing
-    queue_waveform.(awgMarker, stim.markerCh, marker_Rabi_delay, :External)
+    queue_waveform(awgMarker, stim.markerCh, marker_Rabi_delay, :External)
     queue_waveform(awgMarker, stim.markerCh, markerPulseID,  :Auto)
     queue_waveform(awgMarker, stim.markerCh, delay_id_Marker, :Auto, repetitions = decay_num_20ns)
     queue_waveform(awgMarker, stim.markerCh, markerPulseID, :Auto)
-    queue_waveform.(awgMarker, stim.markerCh, delay_id_Marker, :Auto, repetitions = end_num_20ns)
+    queue_waveform(awgMarker, stim.markerCh, delay_id_Marker, :Auto, repetitions = end_num_20ns)
 
     #Start AWGs
     awg_start(awgRead, stim.IQ_readout_chs...)
@@ -194,11 +195,11 @@ function source(stim::Ramsey, τ::Real)
     queue_waveform.(awgRead, stim.IQ_readout_chs, delay_id_Read, :Auto, repetitions = end_num_20ns-Int(read_fudge/2))
 
     #awgMarker queueing
-    queue_waveform.(awgMarker, stim.markerCh, marker_Ramsey_delay, :External)
+    queue_waveform(awgMarker, stim.markerCh, marker_Ramsey_delay, :External)
     queue_waveform(awgMarker, stim.markerCh, markerPulseID, :Auto)
     queue_waveform(awgMarker, stim.markerCh, delay_id_Marker, :Auto, repetitions = decay_num_20ns)
     queue_waveform(awgMarker, stim.markerCh, markerPulseID, :Auto)
-    queue_waveform.(awgMarker, stim.markerCh, delay_id_Marker, :Auto, repetitions = end_num_20ns)
+    queue_waveform(awgMarker, stim.markerCh, delay_id_Marker, :Auto, repetitions = end_num_20ns)
 
     #Start AWGs
     awg_start(awgRead, stim.IQ_readout_chs...)

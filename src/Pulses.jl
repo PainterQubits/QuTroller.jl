@@ -6,6 +6,7 @@ export RectEnvelope
 
 export PulseEdge
 export SineEdge
+export RectEdge
 
 export AnalogPulse
 export DigitalPulse
@@ -15,6 +16,8 @@ export make_RectEnvelope
 export make_Delay
 export make_CosEnvelope
 export make_SineEdge
+
+export load_pulse
 
 """
 Subtypes of this abstract type are meant to be inputs to `DigitalPulse` and `AnalogPulse`
@@ -34,6 +37,7 @@ this input informs the function which kind of edges to synthesize for a DC pulse
 abstract type PulseEdge end
 
 abstract type SineEdge <: PulseEdge end
+abstract type RectEdge <: PulseEdge end
 
 
 """
@@ -133,6 +137,8 @@ this function also takes as input singleton objects of subtypes of the abstract 
 `Envelope`; this input determines what kind of envelope will be synthesized to be
 multiplied to the periodic signal to make the final I and Q waveforms
 """
+function DigitalPulse end
+
 function DigitalPulse(IF_freq::Real, amplitude::Real, duration::Real, ::Type{CosEnvelope},
                       sample_rate::Real, IF_phase::Real = 0; name = "CosEnvelope_"*
                       string(amplitude)*"_"*string(duration))
@@ -169,11 +175,14 @@ end
 """
             DCPulse(amplitude::Real, duration::Real, ::Type{SineEdge}, sample_rate::Real,
                       edge_freq = 20e6)
+            DCPulse(amplitude::Real, duration::Real, ::Type{RectEdge}, sample_rate::Real)
 
 Function for making objetcs of the `DCPulse` type. Besides fields on the type,
 this function also takes as input singleton objects of subtypes of the abstract type
 `Edge`; this input determines what kind of edges the square pulse will have.
 """
+function DCPulse end
+
 function DCPulse(amplitude::Real, duration::Real, ::Type{SineEdge}, sample_rate::Real;
              name = "DCPulse_"*string(amplitude)*"_"*string(duration), edge_freq::Real = 20e6)
     rising_edge, falling_edge = make_SineEdge(sample_rate, edge_freq)
@@ -181,6 +190,87 @@ function DCPulse(amplitude::Real, duration::Real, ::Type{SineEdge}, sample_rate:
     return pulse
 end
 
+function DCPulse(amplitude::Real, duration::Real, ::Type{RectEdge}, sample_rate::Real;
+             name = "DCPulse_"*string(amplitude)*"_"*string(duration))
+    offset = make_RectEnvelope(duration, sample_rate)
+    offset_wav = Waveform(offset, name)
+    pulse = DCPulse(amplitude, duration, offset_wav)
+    return pulse
+end
+
+mutable struct DelayPulse <: Pulse
+    duration::Float64
+    waveform::Waveform
+
+    DelayPulse(duration::Real, sample_rate::Real; name = "Delay_" * string(duration) * "s") = begin
+        delay_wav = Waveform(make_Delay(duration, sample_rate), name)
+        pulse = new(duration, delay_wav)
+        return pulse
+    end
+
+    DelayPulse(duration::Real, waveform::Waveform) = new(duration, waveform)
+end
+
+#loading pulse functions
+
+load_pulse(awg::InsAWGM320XA, pulse::AnalogPulse, id::Integer) = load_waveform(awg, pulse.envelope, id)
+
+load_pulse(awg::InsAWGM320XA, pulse::DCPulse, id::Integer) = load_waveform(awg, pulse.waveform, id)
+
+load_pulse(awg::InsAWGM320XA, pulse::DelayPulse, id::Integer) = load_waveform(awg, pulse.waveform, id)
+
+function load_pulse(awg::InsAWGM320XA, pulse::DigitalPulse, I_id::Integer, Q_id::Integer)
+    load_waveform(awg, pulse.I_waveform, I_id)
+    load_waveform(awg, pulse.Q_waveform, Q_id)
+    nothing
+end
+
+function load_pulse(awg::InsAWGM320XA, pulse::DCPulse, name::AbstractString)
+    if !(pulse.waveform in values(awg.waveforms))
+        load_waveform(awg, pulse.waveform, find_wav_id(awg, name))
+    end
+    nothing
+end
+
+function load_pulse(awg::InsAWGM320XA, pulse::DelayPulse, name::AbstractString)
+    if !(pulse.waveform in values(awg.waveforms))
+        load_waveform(awg, pulse.waveform, find_wav_id(awg, name))
+    end
+    nothing
+end
+
+function load_pulse(awg::InsAWGM320XA, pulse::AnalogPulse, name::AbstractString)
+    if !(pulse.envelope in values(awg.waveforms))
+        load_waveform(awg, pulse.envelope, find_wav_id(awg, name))
+    end
+    nothing
+end
+
+function load_pulse(awg::InsAWGM320XA, pulse::AnalogPulse)
+    env = pulse.envelope
+    (env in values(awg.waveforms)) || load_waveform(awg, env, make_wav_id(awg))
+    nothing
+end
+
+function load_pulse(awg::InsAWGM320XA, pulse::DCPulse)
+    wav = pulse.waveform
+    (wav in values(awg.waveforms)) || load_waveform(awg, wav, make_wav_id(awg))
+    nothing
+end
+
+function load_pulse(awg::InsAWGM320XA, pulse::DelayPulse)
+    wav = pulse.waveform
+    (wav in values(awg.waveforms)) || load_waveform(awg, wav, make_wav_id(awg))
+    nothing
+end
+
+function load_pulse(awg::InsAWGM320XA, pulse::DigitalPulse)
+    read_I_wav = pulse.I_waveform
+    read_Q_wav = pulse.Q_waveform
+    (read_I_wav in values(awg.waveforms)) || load_waveform(awg, read_I_wav, make_wav_id(awg))
+    (read_Q_wav in values(awg.waveforms)) || load_waveform(awg, read_Q_wav, make_wav_id(awg))
+    nothing
+end
 
 
 #helper functions
@@ -188,7 +278,8 @@ end
 function DigitalPulse_general(IF_freq::Real, amplitude::Real, duration::Real,
                               env::Vector{Float64}, sample_rate::Real, IF_phase::Real,
                               name::AbstractString)
-    time_step = 1/sample_rate; t = collect(0:time_step:duration)
+    d = duration
+    time_step = 1/sample_rate; t = linspace(time_step, d, round(d/time_step))
     IF_signal = exp.(im*(2π*IF_freq*t + IF_phase))
     full_pulse = IF_signal.*env
     I_pulse = real(full_pulse)
@@ -201,7 +292,7 @@ function DigitalPulse_general(IF_freq::Real, amplitude::Real, duration::Real,
 
 function DCPulse_general(amplitude::Real, duration::Real, rising_edge::Vector{Float64},
            falling_edge::Vector{Float64}, sample_rate::Real, name::AbstractString)
-    num_t_points = Int(ceil(duration * sample_rate))
+    num_t_points = Int(round(duration * sample_rate))
     dc_part = ones(num_t_points - size(rising_edge)[1] - size(falling_edge)[1])
     pulse_values = vcat(rising_edge, dc_part, falling_edge)
     pulse_wav = Waveform(pulse_values, name)
@@ -212,7 +303,7 @@ end
 function make_CosEnvelope(duration::Real, sample_rate::Real)
     d = duration
     time_step = 1/sample_rate
-    t = collect(0:time_step:d)
+    t = linspace(time_step, d, round(d/time_step))
     env = (1 + cos.(2π*(t - d/2)/d))/2
     return env
 end
@@ -220,7 +311,7 @@ end
 function make_RectEnvelope(duration::Real, sample_rate::Real)
     d = duration
     time_step = 1/sample_rate
-    t = collect(0:time_step:d); num_points = size(t)[1]
+    t = linspace(time_step, d, round(d/time_step)); num_points = size(t)[1]
     env = ones(num_points)
     return env
 end
@@ -237,8 +328,9 @@ function make_SineEdge(sample_rate::Real, edge_freq::Real)
     edge_length = 0.25*(1/edge_freq)
     edge_length_rising = floor(edge_length, 9)
     edge_length_falling = ceil(edge_length, 9)
-    rise_t = collect(0:(1/sample_rate):edge_length_rising)
-    fall_t = collect(0:(1/sample_rate):edge_length_falling)
+    time_step = 1/sample_rate
+    rise_t = linspace(time_step, edge_length_rising, round(edge_length_rising/time_step))
+    fall_t = linspace(time_step, edge_length_falling, round(edge_length_falling/time_step))
     rising_edge = sin.(2*π*edge_freq*rise_t)
     falling_edge = sin.(2*π*edge_freq*fall_t + π/2)
     return rising_edge, falling_edge
