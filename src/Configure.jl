@@ -16,18 +16,9 @@ function configure_awgs_general(stim::QubitCharacterization)
     awgXY = stim.awgXY
     awgRead = stim.awgRead
     awgMarker = stim.awgMarker
-    #reseting clocks and resetting phase
-    # @KSerror_handler SD_AOU_clockResetPhase(awgXY.ID, symbol_to_keysight(:Falling),
-    #                                         stim.PXI_line, 0) #4th input: skew
-    # @KSerror_handler SD_AOU_clockResetPhase(awgRead.ID, symbol_to_keysight(:Falling),
-    #                                         stim.PXI_line, 0) #4th input: skew
-    # @KSerror_handler SD_AOU_clockResetPhase(awgMarker.ID, symbol_to_keysight(:Falling),
-    #                                         stim.PXI_line, 0) #4th input: skew
-    @KSerror_handler SD_AOU_channelPhaseResetMultiple(awgXY.ID, nums_to_mask(stim.IQ_XY_chs...))
-    @KSerror_handler SD_AOU_channelPhaseResetMultiple(awgRead.ID, nums_to_mask(stim.IQ_readout_chs...))
-    @KSerror_handler SD_AOU_channelPhaseReset(awgMarker.ID, stim.markerCh)
-    @KSerror_handler SD_Module_PXItriggerWrite(awgXY.ID, stim.PXI_line, 0) #turning line on
-    @KSerror_handler SD_Module_PXItriggerWrite(awgXY.ID, stim.PXI_line, 1) #turning line off
+    awg_stop(awgXY, stim.IQ_XY_chs...); awg_stop(awgRead, stim.IQ_readout_chs...)
+    awg_stop(awgMarker, stim.markerCh)
+    @KSerror_handler SD_Module_PXItriggerWrite(awgMarker.ID, stim.PXI_line, 1) #turning line off
 
     #Configuring XY channels
     awgXY[Amplitude,stim.IQ_XY_chs...] = 0 #turning off generator in case it was already on
@@ -44,7 +35,7 @@ function configure_awgs_general(stim::QubitCharacterization)
     #Configuring Readout channels
     awgRead[OutputMode, stim.IQ_readout_chs...] = :Arbitrary
     awgRead[Amplitude,stim.IQ_readout_chs...] = stim.readoutPulse.amplitude
-    awgRead[DCOffset,stim.IQ_readout_chs...] = 0
+    awgRead[DCOffset, stim.IQ_readout_chs...] = 0
     awgRead[QueueCycleMode, stim.IQ_readout_chs...] = :Cyclic
     awgRead[QueueSyncMode, stim.IQ_readout_chs...] = :CLK10
     awgRead[TrigSource, stim.IQ_readout_chs...] = stim.PXI_line
@@ -54,16 +45,16 @@ function configure_awgs_general(stim::QubitCharacterization)
     awgRead[AngModMode, stim.IQ_readout_chs...] = :Off
 
     #Configuring marker channel
-    awgMarker[OutputMode, stim.IQ_readout_chs...] = :Arbitrary
-    awgMarker[Amplitude,stim.IQ_readout_chs...] = 1 #arbitrary marker voltage I chose
-    awgMarker[DCOffset,stim.IQ_readout_chs...] = 0
-    awgMarker[QueueCycleMode, stim.IQ_readout_chs...] = :Cyclic
-    awgMarker[QueueSyncMode, stim.IQ_readout_chs...] = :CLK10
-    awgMarker[TrigSource, stim.IQ_readout_chs...] = stim.PXI_line
-    awgMarker[TrigBehavior, stim.IQ_readout_chs...] = :Low
-    awgMarker[TrigSync, stim.IQ_readout_chs...] = :CLK10
-    awgMarker[AmpModMode, stim.IQ_readout_chs...] = :Off
-    awgMarker[AngModMode, stim.IQ_readout_chs...] = :Off
+    awgMarker[OutputMode, stim.markerCh] = :Arbitrary
+    awgMarker[Amplitude, stim.markerCh] = 1.5 #arbitrary marker voltage I chose
+    awgMarker[DCOffset, stim.markerCh] = 0
+    awgMarker[QueueCycleMode, stim.markerCh] = :Cyclic
+    awgMarker[QueueSyncMode, stim.markerCh] = :CLK10
+    awgMarker[TrigSource, stim.markerCh] = stim.PXI_line
+    awgMarker[TrigBehavior, stim.markerCh] = :Low
+    awgMarker[TrigSync, stim.markerCh] = :CLK10
+    awgMarker[AmpModMode, stim.markerCh] = :Off
+    awgMarker[AngModMode, stim.markerCh] = :Off
 
     #loading readout, marker, and delay pulses
     load_pulse(awgRead, stim.readoutPulse)
@@ -82,20 +73,16 @@ function configure_awgs_general(stim::QubitCharacterization)
 end
 
 function configure_awgs(stim::T1)
+    (rem(round(stim.πPulse.duration/1e-9), 10) != 0.0) &&
+                        error("XY pulse length must be in mutiple of 10ns")
     configure_awgs_general(stim)
     awgXY = stim.awgXY
-    awgRead = stim.awgRead
-    awgMarker = stim.awgMarker
     πPulse = stim.πPulse
     load_pulse(awgXY, πPulse)
-
-    #further configuring XY channels
-    XY_I = stim.IQ_XY_chs[1]
-    XY_Q = stim.IQ_XY_chs[2]
     awgXY[AmpModGain, stim.IQ_XY_chs...] = πPulse.amplitude
     awgXY[FGFrequency, stim.IQ_XY_chs...] = πPulse.IF_freq
-    awgXY[FGPhase, XY_I] = πPulse.IF_phase
-    awgXY[FGPhase, XY_Q] = πPulse.IF_phase - π/2 #cos(phi -pi/2) = sin(phi)
+    awgXY[FGPhase, stim.IQ_XY_chs[1]] = stim.πPulse.IF_phase
+    awgXY[FGPhase, stim.IQ_XY_chs[2]] = stim.πPulse.IF_phase - 90 #cos(phi -pi/2) = sin(phi)
     nothing
 end
 
@@ -103,14 +90,10 @@ function configure_awgs(stim::Rabi)
     configure_awgs_general(stim)
     awgXY = stim.awgXY
     XYPulse = stim.XYPulse
-
-    #further configuring XY channels
-    XY_I = stim.IQ_XY_chs[1]
-    XY_Q = stim.IQ_XY_chs[2]
     awgXY[AmpModGain, stim.IQ_XY_chs...] = XYPulse.amplitude
     awgXY[FGFrequency, stim.IQ_XY_chs...] = XYPulse.IF_freq
-    awgXY[FGPhase, XY_I] = XYPulse.IF_phase
-    awgXY[FGPhase, XY_Q] = XYPulse.IF_phase - π/2
+    awgXY[FGPhase, stim.IQ_XY_chs[1]] = XYPulse.IF_phase
+    awgXY[FGPhase, stim.IQ_XY_chs[2]] = XYPulse.IF_phase - 90 #cos(phi -pi/2) = sin(phi)
     nothing
 end
 
