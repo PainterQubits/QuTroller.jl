@@ -81,18 +81,8 @@ function configure_awgs(stim::T1)
     load_pulse(awgXY, πPulse)
     awgXY[AmpModGain, stim.IQ_XY_chs...] = πPulse.amplitude
     awgXY[FGFrequency, stim.IQ_XY_chs...] = πPulse.IF_freq
-<<<<<<< HEAD
-    awgXY[FGPhase, XY_I] = πPulse.IF_phase
-    awgXY[FGPhase, XY_Q] = πPulse.IF_phase - π/2 #cos(phi -pi/2) = sin(phi)
-
-    #loading πPulse waveforms
-    πPulse_env = πPulse.envelope
-    (πPulse_env in values(awgXY.waveforms)) || load_waveform(awgXY, πPulse_env,
-                                                             make_wav_id(awgXY))
-=======
     awgXY[FGPhase, stim.IQ_XY_chs[1]] = stim.πPulse.IF_phase
     awgXY[FGPhase, stim.IQ_XY_chs[2]] = stim.πPulse.IF_phase - 90 #cos(phi -pi/2) = sin(phi)
->>>>>>> 101ffb7405cde132eba86aa2d5185dcc73708d3d
     nothing
 end
 
