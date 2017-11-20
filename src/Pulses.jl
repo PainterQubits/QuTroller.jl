@@ -11,6 +11,7 @@ export RectEdge
 export AnalogPulse
 export DigitalPulse
 export DCPulse
+export DelayPulse
 
 export make_RectEnvelope
 export make_Delay

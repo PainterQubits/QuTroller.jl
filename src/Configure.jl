@@ -83,6 +83,7 @@ function configure_awgs(stim::T1)
     awgXY[FGFrequency, stim.IQ_XY_chs...] = πPulse.IF_freq
     awgXY[FGPhase, stim.IQ_XY_chs[1]] = stim.πPulse.IF_phase
     awgXY[FGPhase, stim.IQ_XY_chs[2]] = stim.πPulse.IF_phase - 90 #cos(phi -pi/2) = sin(phi)
+    @KSerror_handler SD_AOU_channelPhaseResetMultiple(awgXY.ID,  nums_to_mask(stim.IQ_XY_chs...))
     nothing
 end
 
@@ -94,6 +95,7 @@ function configure_awgs(stim::Rabi)
     awgXY[FGFrequency, stim.IQ_XY_chs...] = XYPulse.IF_freq
     awgXY[FGPhase, stim.IQ_XY_chs[1]] = XYPulse.IF_phase
     awgXY[FGPhase, stim.IQ_XY_chs[2]] = XYPulse.IF_phase - 90 #cos(phi -pi/2) = sin(phi)
+    @KSerror_handler SD_AOU_channelPhaseResetMultiple(awgXY.ID,  nums_to_mask(stim.IQ_XY_chs...))
     nothing
 end
 

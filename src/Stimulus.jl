@@ -3,8 +3,8 @@ export T1
 export Rabi
 export Ramsey
 
-global const DECAY_TIME = 120e-6 #temporary delay for testing purposes
-global const END_TIME = 120e-6 #temporary delay for testing purposes
+global const DECAY_TIME = 40e-6 #temporary delay for testing purposes
+global const END_TIME = 40e-6 #temporary delay for testing purposes
 global const PXI_LINE = 0
 global const MARKER_CH = 4
 
@@ -220,7 +220,7 @@ an AWG object for markers, a π pulse, and a readout pulse. This function sets t
 """
 T1(awg::InsAWGM320XA, awgMarker::InsAWGM320XA, πPulse::AnalogPulse,
    readoutPulse::DigitalPulse) = T1(awg, awg, awgMarker, πPulse, readoutPulse,
-   (1,2), (3,4))
+   (1,4), (2,3))
 
 """
 Creates a "standard" `Rabi` stimulus object assuming that one AWG Keysight card corresponds
@@ -230,7 +230,7 @@ the other `Rabi` fields with standard values.
 """
 Rabi(awg::InsAWGM320XA, awgMarker::InsAWGM320XA, XYPulse::AnalogPulse,
      readoutPulse::DigitalPulse) = Rabi(awg, awg, awgMarker, XYPulse, readoutPulse,
-    (1,2), (3,4))
+    (1,4), (2,3))
 
 """
 Creates a "standard" `Ramsey` stimulus object assuming that one AWG Keysight card corresponds
@@ -240,6 +240,6 @@ the other `Ramsey` fields with standard values.
 """
 Ramsey(awg::InsAWGM320XA, awgMarker::InsAWGM320XA, π_2Pulse::AnalogPulse,
        readoutPulse::DigitalPulse) = Ramsey(awg, awg, awgMarker, π_2Pulse, readoutPulse,
-       (1,2), (3,4))
+       (1,4), (2,3))
 
 include("source.jl")
