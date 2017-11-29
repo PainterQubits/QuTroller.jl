@@ -5,7 +5,6 @@ export Ramsey
 
 global const DECAY_TIME = 20e-6 #temporary delay for testing purposes
 global const END_TIME = 20e-6 #temporary delay for testing purposes
-global const PXI_LINE = 0
 global const MARKER_CH = 4
 
 
