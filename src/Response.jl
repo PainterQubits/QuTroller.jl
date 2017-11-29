@@ -1,6 +1,7 @@
 export IQTrigResponse
 export Avg_IQResponse
 export Avg_IQResponse2
+export IQPXIResponse
 
 mutable struct IQTrigResponse <: Response
     #digitizer
@@ -71,7 +72,7 @@ function measure(resp::IQTrigResponse)
 end
 
 mutable struct Avg_IQResponse <: Response
-    respIQ::IQTrigResponse
+    respIQ::Response
 end
 
 function measure(resp::Avg_IQResponse)
@@ -80,7 +81,7 @@ function measure(resp::Avg_IQResponse)
 end
 
 mutable struct Avg_IQResponse2 <: Response
-    respIQ::IQTrigResponse
+    respIQ::Response
 end
 
 function measure(resp::Avg_IQResponse2)
