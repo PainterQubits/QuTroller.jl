@@ -18,7 +18,6 @@ function configure_awgs_general(stim::QubitCharacterization)
     awgMarker = stim.awgMarker
     awg_stop(awgXY, stim.IQ_XY_chs...); awg_stop(awgRead, stim.IQ_readout_chs...)
     awg_stop(awgMarker, stim.markerCh)
-    @KSerror_handler SD_Module_PXItriggerWrite(awgMarker.ID, stim.PXI_line, 1) #turning line off
 
     #Configuring XY channels
     awgXY[Amplitude,stim.IQ_XY_chs...] = 0 #turning off generator in case it was already on
@@ -59,7 +58,7 @@ function configure_awgs_general(stim::QubitCharacterization)
     #loading readout, marker, and delay pulses
     load_pulse(awgRead, stim.readoutPulse)
     marker_pulse = DCPulse(1, stim.readoutPulse.duration, RectEdge, awgMarker[SampleRate],
-                           name = "Markers_Voltage=1")
+                           name = "Markers_Voltage=1.5")
     load_pulse(awgMarker, marker_pulse, "Markers_Voltage=1")
     readoutPulse_delay = DelayPulse(stim.readoutPulse.duration, awgXY[SampleRate], name = "readoutPulse_delay")
     load_pulse(awgXY, readoutPulse_delay, "readoutPulse_delay")
@@ -105,5 +104,49 @@ function configure_awgs(stim::Ramsey)
     temp_T1 = T1(stim.awgXY, stim.awgRead, stim.awgMarker, stim.π_2Pulse, stim.readoutPulse, stim.decay_delay,
                  stim.end_delay, stim.IQ_XY_chs, stim.IQ_readout_chs, stim.markerCh, stim.PXI_line, stim.axisname, stim.axislabel)
     configure_awgs(temp_T1)
+    nothing
+end
+
+function configure_awgs(stim::ReadoutReference)
+    (rem(round(stim.readoutPulse.duration/1e-9), 10) != 0.0) &&
+                        error("Readout pulse length must be in mutiple of 10ns")
+    awgRead = stim.awgRead
+    awgMarker = stim.awgMarker
+    awg_stop(awgRead, stim.IQ_readout_chs...)
+    awg_stop(awgMarker, stim.markerCh)
+
+    #Configuring Readout channels
+    awgRead[OutputMode, stim.IQ_readout_chs...] = :Arbitrary
+    awgRead[Amplitude,stim.IQ_readout_chs...] = stim.readoutPulse.amplitude
+    awgRead[DCOffset, stim.IQ_readout_chs...] = 0
+    awgRead[QueueCycleMode, stim.IQ_readout_chs...] = :Cyclic
+    awgRead[QueueSyncMode, stim.IQ_readout_chs...] = :CLK10
+    awgRead[TrigSource, stim.IQ_readout_chs...] = stim.PXI_line
+    awgRead[TrigBehavior, stim.IQ_readout_chs...] = :Low
+    awgRead[TrigSync, stim.IQ_readout_chs...] = :CLK10
+    awgRead[AmpModMode, stim.IQ_readout_chs...] = :Off
+    awgRead[AngModMode, stim.IQ_readout_chs...] = :Off
+
+    #Configuring marker channel
+    awgMarker[OutputMode, stim.markerCh] = :Arbitrary
+    awgMarker[Amplitude, stim.markerCh] = 1.5 #arbitrary marker voltage I chose
+    awgMarker[DCOffset, stim.markerCh] = 0
+    awgMarker[QueueCycleMode, stim.markerCh] = :Cyclic
+    awgMarker[QueueSyncMode, stim.markerCh] = :CLK10
+    awgMarker[TrigSource, stim.markerCh] = stim.PXI_line
+    awgMarker[TrigBehavior, stim.markerCh] = :Low
+    awgMarker[TrigSync, stim.markerCh] = :CLK10
+    awgMarker[AmpModMode, stim.markerCh] = :Off
+    awgMarker[AngModMode, stim.markerCh] = :Off
+
+    #loading readout, marker, and delay pulses
+    load_pulse(awgRead, stim.readoutPulse)
+    marker_pulse = DCPulse(1, stim.readoutPulse.duration, RectEdge, awgMarker[SampleRate],
+                           name = "Markers_Voltage=1")
+    load_pulse(awgMarker, marker_pulse, "Markers_Voltage=1")
+    read_delay_20ns = DelayPulse(20e-9, awgRead[SampleRate], name = "20ns_delay")
+    load_pulse(awgRead, read_delay_20ns, "20ns_delay")
+    marker_delay_20ns = DelayPulse(20e-9, awgMarker[SampleRate], name = "20ns_delay")
+    load_pulse(awgMarker, marker_delay_20ns, "20ns_delay")
     nothing
 end

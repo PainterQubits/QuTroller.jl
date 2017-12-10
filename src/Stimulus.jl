@@ -3,9 +3,8 @@ export T1
 export Rabi
 export Ramsey
 
-global const DECAY_TIME = 40e-6 #temporary delay for testing purposes
-global const END_TIME = 40e-6 #temporary delay for testing purposes
-global const PXI_LINE = 0
+global const DECAY_TIME = 60e-6 #temporary delay for testing purposes
+global const END_TIME = 60e-6 #temporary delay for testing purposes
 global const MARKER_CH = 4
 
 
@@ -74,6 +73,10 @@ mutable struct T1 <: QubitCharacterization
 
     T1(awgXY, awgRead, awgMarker, πPulse, readoutPulse, IQ_XY_chs, IQ_readout_chs) =
         new(awgXY, awgRead, awgMarker, πPulse, readoutPulse, DECAY_TIME, END_TIME, IQ_XY_chs,
+            IQ_readout_chs, MARKER_CH, PXI_LINE, :t1delay, "Delay")
+
+    T1(awgXY, awgRead, awgMarker, πPulse, readoutPulse, decay_delay, end_delay, IQ_XY_chs, IQ_readout_chs) =
+        new(awgXY, awgRead, awgMarker, πPulse, readoutPulse,decay_delay, end_delay, IQ_XY_chs,
             IQ_readout_chs, MARKER_CH, PXI_LINE, :t1delay, "Delay")
 
     T1(awgXY, awgRead, awgMarker, πPulse, readoutPulse, decay_delay, end_delay, IQ_XY_chs,
@@ -209,6 +212,47 @@ mutable struct Ramsey <: QubitCharacterization
         IQ_readout_chs, markerCh, PXI_line, axisname, axislabel) = new(awgXY, awgRead,
         awgMarker, π_2Pulse, readoutPulse, decay_delay, end_delay, IQ_XY_chs, IQ_readout_chs,
         markerCh, PXI_line, axisname, axislabel)
+end
+
+"""
+```
+mutable struct ReadoutReference <: Stimulus
+    #AWGs
+    awgRead::InsAWGM30XA
+    awgMarker::InsAWGM30XA
+    #pulses
+    readoutPulse::DigitalPulse
+    delay::Float64
+    #awg configuration information
+    IQ_readout_chs::Tuple{Int,Int}
+    markerCh::Int
+    PXI_line::Int
+    #data
+    axisname::Symbol
+    axislabel::String
+end
+```
+
+Stimulus type for outputting readout pulses continuously, with a delay between each pulse.
+The corresponding source function is source(stim).
+"""
+mutable struct ReadoutReference <: Stimulus
+    #AWGs
+    awgRead::InsAWGM30XA
+    awgMarker::InsAWGM30XA
+    #pulses
+    readoutPulse::DigitalPulse
+    delay::Float64
+    #awg configuration information
+    IQ_readout_chs::Tuple{Int,Int}
+    markerCh::Int
+    PXI_line::Int
+
+    ReadoutReference(awgRead, awgMarker, readoutPulse, decay_delay, IQ_readout_chs) =
+        new(awgRead, awgMarker, readoutPulse, decay_delay, IQ_readout_chs, MARKER_CH, PXI_LINE)
+
+    ReadoutReference(awgRead, awgMarker, readoutPulse, decay_delay, IQ_readout_chs, markerCh, PXI_line) =
+        new(awgRead, awgMarker, readoutPulse, decay_delay, IQ_readout_chs, markerCh, PXI_line)
 end
 
 

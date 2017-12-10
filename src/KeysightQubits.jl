@@ -5,6 +5,8 @@ import ICCommon: source, Stimulus, measure, Response
 
 export load_pulse
 
+export make_wav_id
+
 using InstrumentControl
 using InstrumentControl: AWGM320XA, DigitizerM3102A
 using KeysightInstruments
@@ -12,6 +14,8 @@ using AxisArrays
 
 Waveform = AWGM320XA.Waveform
 nums_to_mask = AWGM320XA.nums_to_mask
+
+global const PXI_LINE = 0
 
 #helper function
 """
