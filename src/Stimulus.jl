@@ -76,7 +76,7 @@ mutable struct T1 <: QubitCharacterization
             IQ_readout_chs, MARKER_CH, PXI_LINE, :t1delay, "Delay")
 
     T1(awgXY, awgRead, awgMarker, πPulse, readoutPulse, decay_delay, end_delay, IQ_XY_chs, IQ_readout_chs) =
-        new(awgXY, awgRead, awgMarker, πPulse, readoutPulse,decay_delay, end_delay, IQ_XY_chs,
+        new(awgXY, awgRead, awgMarker, πPulse, readoutPulse, decay_delay, end_delay, IQ_XY_chs,
             IQ_readout_chs, MARKER_CH, PXI_LINE, :t1delay, "Delay")
 
     T1(awgXY, awgRead, awgMarker, πPulse, readoutPulse, decay_delay, end_delay, IQ_XY_chs,
@@ -144,6 +144,10 @@ mutable struct Rabi <: QubitCharacterization
         new(awgXY, awgRead, awgMarker, XYPulse, readoutPulse, DECAY_TIME, END_TIME, IQ_XY_chs,
             IQ_readout_chs, MARKER_CH, PXI_LINE, :xyduration, "XY Pulse Duration")
 
+    Rabi(awgXY, awgRead, awgMarker, XYPulse, readoutPulse, decay_delay, end_delay, IQ_XY_chs, IQ_readout_chs) =
+        new(awgXY, awgRead, awgMarker, XYPulse, readoutPulse, decay_delay, end_delay, IQ_XY_chs,
+            IQ_readout_chs, MARKER_CH, PXI_LINE, :xyduration, "XY Pulse Duration")
+
     Rabi(awgXY, awgRead, awgMarker, XYPulse, readoutPulse, decay_delay, end_delay, IQ_XY_chs,
         IQ_readout_chs, markerCh, PXI_line, axisname, axislabel) = new(awgXY, awgRead,
         awgMarker, XYPulse, readoutPulse, decay_delay, end_delay, IQ_XY_chs, IQ_readout_chs,
@@ -208,6 +212,10 @@ mutable struct Ramsey <: QubitCharacterization
         new(awgXY, awgRead, awgMarker, π_2Pulse, readoutPulse, DECAY_TIME, END_TIME, IQ_XY_chs,
             IQ_readout_chs, MARKER_CH, PXI_LINE, :ramseydelay, "Free Evolution Time")
 
+    Ramsey(awgXY, awgRead, awgMarker, π_2Pulse, readoutPulse, decay_delay, end_delay, IQ_XY_chs, IQ_readout_chs) =
+        new(awgXY, awgRead, awgMarker, π_2Pulse, readoutPulse, decay_delay, end_delay, IQ_XY_chs,
+            IQ_readout_chs, MARKER_CH, PXI_LINE, :ramseydelay, "Free Evolution Time")
+
     Ramsey(awgXY, awgRead, awgMarker, π_2Pulse, readoutPulse, decay_delay, end_delay, IQ_XY_chs,
         IQ_readout_chs, markerCh, PXI_line, axisname, axislabel) = new(awgXY, awgRead,
         awgMarker, π_2Pulse, readoutPulse, decay_delay, end_delay, IQ_XY_chs, IQ_readout_chs,
@@ -248,42 +256,11 @@ mutable struct ReadoutReference <: Stimulus
     markerCh::Int
     PXI_line::Int
 
-    ReadoutReference(awgRead, awgMarker, readoutPulse, decay_delay, IQ_readout_chs) =
-        new(awgRead, awgMarker, readoutPulse, decay_delay, IQ_readout_chs, MARKER_CH, PXI_LINE)
+    ReadoutReference(awgRead, awgMarker, readoutPulse, delay, IQ_readout_chs) =
+        new(awgRead, awgMarker, readoutPulse, delay, IQ_readout_chs, MARKER_CH, PXI_LINE)
 
-    ReadoutReference(awgRead, awgMarker, readoutPulse, decay_delay, IQ_readout_chs, markerCh, PXI_line) =
-        new(awgRead, awgMarker, readoutPulse, decay_delay, IQ_readout_chs, markerCh, PXI_line)
+    ReadoutReference(awgRead, awgMarker, readoutPulse, delay, IQ_readout_chs, markerCh, PXI_line) =
+        new(awgRead, awgMarker, readoutPulse, delay, IQ_readout_chs, markerCh, PXI_line)
 end
-
-
-"""
-Creates a "standard" `T1` stimulus object assuming that one AWG Keysight card corresponds
-to just one qubit; the object is initialized given just an AWG object for pulses,
-an AWG object for markers, a π pulse, and a readout pulse. This function sets the other
-`T1` fields with standard values.
-"""
-T1(awg::InsAWGM320XA, awgMarker::InsAWGM320XA, πPulse::AnalogPulse,
-   readoutPulse::DigitalPulse) = T1(awg, awg, awgMarker, πPulse, readoutPulse,
-   (1,4), (2,3))
-
-"""
-Creates a "standard" `Rabi` stimulus object assuming that one AWG Keysight card corresponds
-to just one qubit; the object is initialized given just an AWG object for pulses,
-an AWG object for markers, a XY pulse, and a readout pulse. This function sets
-the other `Rabi` fields with standard values.
-"""
-Rabi(awg::InsAWGM320XA, awgMarker::InsAWGM320XA, XYPulse::AnalogPulse,
-     readoutPulse::DigitalPulse) = Rabi(awg, awg, awgMarker, XYPulse, readoutPulse,
-    (1,4), (2,3))
-
-"""
-Creates a "standard" `Ramsey` stimulus object assuming that one AWG Keysight card corresponds
-to just one qubit; the object is initialized given just an AWG object for pulses,
-an AWG object for markers, a π/2 pulse, and a readout pulse. This function sets
-the other `Ramsey` fields with standard values.
-"""
-Ramsey(awg::InsAWGM320XA, awgMarker::InsAWGM320XA, π_2Pulse::AnalogPulse,
-       readoutPulse::DigitalPulse) = Ramsey(awg, awg, awgMarker, π_2Pulse, readoutPulse,
-       (1,4), (2,3))
 
 include("source.jl")

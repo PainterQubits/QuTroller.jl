@@ -4,9 +4,10 @@ export configure_awgs
         configure_awgs(stim::T1)
         configure_awgs(stim::Rabi)
         configure_awgs(stim::Ramsey)
+        configure_awgs(stim::ReadoutReference)
 
 Function to configure AWG channels and load appropriate waveforms prior to
-sourcing of Stimulus `QubitCharacterization` objects.
+sourcing of Stimulus `QubitCharacterization` or `ReadoutReference` objects.
 """
 function configure_awgs end
 
@@ -57,9 +58,9 @@ function configure_awgs_general(stim::QubitCharacterization)
 
     #loading readout, marker, and delay pulses
     load_pulse(awgRead, stim.readoutPulse)
-    marker_pulse = DCPulse(1, stim.readoutPulse.duration, RectEdge, awgMarker[SampleRate],
+    marker_pulse = DCPulse(1.5, stim.readoutPulse.duration, RectEdge, awgMarker[SampleRate],
                            name = "Markers_Voltage=1.5")
-    load_pulse(awgMarker, marker_pulse, "Markers_Voltage=1")
+    load_pulse(awgMarker, marker_pulse, "Markers_Voltage=1.5")
     readoutPulse_delay = DelayPulse(stim.readoutPulse.duration, awgXY[SampleRate], name = "readoutPulse_delay")
     load_pulse(awgXY, readoutPulse_delay, "readoutPulse_delay")
     XY_delay_20ns = DelayPulse(20e-9, awgXY[SampleRate], name = "20ns_delay")
@@ -141,9 +142,9 @@ function configure_awgs(stim::ReadoutReference)
 
     #loading readout, marker, and delay pulses
     load_pulse(awgRead, stim.readoutPulse)
-    marker_pulse = DCPulse(1, stim.readoutPulse.duration, RectEdge, awgMarker[SampleRate],
-                           name = "Markers_Voltage=1")
-    load_pulse(awgMarker, marker_pulse, "Markers_Voltage=1")
+    marker_pulse = DCPulse(1.5, stim.readoutPulse.duration, RectEdge, awgMarker[SampleRate],
+                           name = "Markers_Voltage=1.5")
+    load_pulse(awgMarker, marker_pulse, "Markers_Voltage=1.5")
     read_delay_20ns = DelayPulse(20e-9, awgRead[SampleRate], name = "20ns_delay")
     load_pulse(awgRead, read_delay_20ns, "20ns_delay")
     marker_delay_20ns = DelayPulse(20e-9, awgMarker[SampleRate], name = "20ns_delay")

@@ -3,10 +3,6 @@ module KeysightQubits
 
 import ICCommon: source, Stimulus, measure, Response
 
-export load_pulse
-
-export make_wav_id
-
 using InstrumentControl
 using InstrumentControl: AWGM320XA, DigitizerM3102A
 using KeysightInstruments
@@ -22,7 +18,7 @@ global const PXI_LINE = 0
         make_wav_id(awg::InsAWGM320XA)
 
 Finds the biggest waveform ID among the waveforms loaded in the AWG corresponding
-to the `awg` object, and returns that ID plus 1 (increments the biggest ID by 1)
+to the `awg` object, and returns that ID plus 1 (increments the biggest ID by 1).
 """
 function make_wav_id(awg::InsAWGM320XA)
     if size(collect(keys(awg.waveforms)))[1] == 0

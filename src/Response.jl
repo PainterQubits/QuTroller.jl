@@ -1,7 +1,6 @@
 export IQTrigResponse
 export Avg_IQResponse
 export Avg_IQResponse2
-export IQPXIResponse
 
 mutable struct IQTrigResponse <: Response
     #digitizer
@@ -27,12 +26,13 @@ mutable struct IQTrigResponse <: Response
 end
 
 function measure(resp::IQTrigResponse)
-        #getting digitizer ready
     dig = resp.dig
     ch1 = resp.I_ch
     ch2 = resp.Q_ch
     control_line = resp.control_line
     @KSerror_handler SD_Module_PXItriggerWrite(dig.ID, control_line, 1)
+    #getting digitizer ready
+    daq_flush(dig, ch1, ch2)
     daq_points = resp.points_per_cycle * resp.daq_cycles
     @KSerror_handler SD_AIN_triggerIOconfig(dig.ID, 1)
     for ch in [ch1, ch2]
@@ -48,9 +48,9 @@ function measure(resp::IQTrigResponse)
     daq_start(dig, ch1, ch2)
     sleep(0.001)
     @KSerror_handler SD_Module_PXItriggerWrite(dig.ID, control_line, 0)
-    all_I_data = daq_read(dig, ch1, daq_points, 1)
+    all_I_data = daq_read(dig, ch1, daq_points, 1) #1ms timeout
     all_I_data = all_I_data * (dig[FullScale, ch1])/2^15
-    all_Q_data = daq_read(dig, ch2, daq_points, 1)
+    all_Q_data = daq_read(dig, ch2, daq_points, 1) #1ms timeout
     all_Q_data = all_Q_data * (dig[FullScale, ch2])/2^15
     @KSerror_handler SD_Module_PXItriggerWrite(dig.ID, control_line, 1)
 
@@ -72,20 +72,21 @@ function measure(resp::IQTrigResponse)
     return all_IQ::Vector{Complex{Float32}}
 end
 
+mutable struct piNopi_IQResponse <: Response
+    respIQ::Response
+end
+
+function measure(resp::piNopi_IQResponse)
+    all_IQ = measure(resp.respIQ)::Array{Complex{Float32},1}
+    return AxisArray([mean(all_IQ[1:2:end]), mean(all_IQ[2:2:end])], Axis{:pulse}([:pi, :nopi]))
+end
+
 mutable struct Avg_IQResponse <: Response
     respIQ::Response
 end
 
 function measure(resp::Avg_IQResponse)
     all_IQ = measure(resp.respIQ)::Array{Complex{Float32},1}
-    return AxisArray([mean(all_IQ[1:2:end]), mean(all_IQ[2:2:end])], Axis{:pulse}([:pi, :nopi]))
-end
-
-mutable struct Avg_IQResponse2 <: Response
-    respIQ::Response
-end
-
-function measure(resp::Avg_IQResponse2)
-    all_IQ = measure(resp.respIQ)::Array{Complex{Float32},1}
-    return AxisArray([mean(all_IQ[1:2:end])], Axis{:pulse}([:pi]))
+    return mean(all_IQ)
+    #return AxisArray([mean(all_IQ)], Axis{:pulse}([:pi]))
 end

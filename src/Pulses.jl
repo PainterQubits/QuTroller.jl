@@ -54,6 +54,21 @@ a channel's arbitrary waveform generator to amplitude modulate the output of a
 channel's Function Generator. It holds the envelope waveform which is the modulating signal,
 it's duration, as well as pulse parameters used to configure the particular AWG
 channel generating the pulse: IF_freq, amplitude, and  IF_phase.
+
+There are three inner constructors to make an `AnalogPulse` object:
+        AnalogPulse(IF_freq, amplitude, IF_phase)
+        AnalogPulse(IF_freq, amplitude, IF_phase, duration)
+        AnalogPulse(IF_freq, amplitude, IF_phase, duration, env)
+
+as well as an overloaded function which allows for standard/optional arguments:
+        AnalogPulse(IF_freq::Real, amplitude::Real, duration::Real, ::Type{CosEnvelope},
+            sample_rate::Real, IF_phase::Real = 0)
+        AnalogPulse(IF_freq::Real, amplitude::Real, duration::Real, ::Type{RectEnvelope},
+            sample_rate::Real, IF_phase::Real = 0)
+
+where besides fields on the type, the function also takes as input singleton objects
+of subtypes of the abstract type `Envelope`; this input determines what kind of
+envelope will be synthesized to be used as a modulating signal.
 """
 mutable struct AnalogPulse <: Pulse
     IF_freq::Float64
@@ -70,20 +85,6 @@ mutable struct AnalogPulse <: Pulse
     AnalogPulse(IF_freq, amplitude, IF_phase, duration, env) =
                new(IF_freq, amplitude, IF_phase, duration, env)
 end
-
-"""
-           AnalogPulse(IF_freq::Real, amplitude::Real, duration::Real, ::Type{CosEnvelope},
-                       sample_rate::Real, IF_phase::Real = 0)
-           AnalogPulse(IF_freq::Real, amplitude::Real, duration::Real, ::Type{RectEnvelope},
-                       sample_rate::Real, IF_phase::Real = 0)
-
-
-Function for making objetcs of the `AnalogPulse` type. Besides fields on the type,
-this function also takes as input singleton objects of subtypes of the abstract type
-`Envelope`; this input determines what kind of envelope will be synthesized to be
-used as a modulating signal.
-"""
-function AnalogPulse end
 
 function AnalogPulse(IF_freq::Real, amplitude::Real, duration::Real, ::Type{CosEnvelope},
                     sample_rate::Real, IF_phase::Real = 0; name = "CosEnvelope_"*
@@ -108,6 +109,22 @@ directly by a channel's arbitrary waveform generator, which eventually are used
 to make a ~GHz pulse (along with an IQ mixer). It holds both the I and Q
 waveforms, the pulse's duration,as well as the amplitude of the pulse, which is used
 to configure the I and Q channels of the AWG.
+
+There are three inner constructors to make an `DigitalPulse` object:
+        DigitalPulse(IF_freq, amplitude, IF_phase)
+        DigitalPulse(IF_freq, amplitude, IF_phase, duration)
+        DigitalPulse(IF_freq, amplitude, IF_phase, duration, I_wav, Q_wav)
+
+as well as an overloaded function which allows for standard/optional arguments:
+        DigitalPulse(IF_freq::Real, amplitude::Real, duration::Real, ::Type{CosEnvelope},
+           sample_rate::Real, IF_phase::Real = 0)
+        DigitalPulse(IF_freq::Real, amplitude::Real, duration::Real, ::Type{RectEnvelope},
+           sample_rate::Real, IF_phase::Real = 0)
+
+where besides fields on the type, the function also takes as input singleton objects of
+subtypes of the abstract type `Envelope`; this input determines what kind of envelope
+will be synthesized to be multiplied to the periodic signal to make the final I and Q waveforms
+
 """
 mutable struct DigitalPulse <: Pulse
     IF_freq::Float64
@@ -125,20 +142,6 @@ mutable struct DigitalPulse <: Pulse
     DigitalPulse(IF_freq, amplitude, IF_phase, duration, I_wav, Q_wav) =
                  new(IF_freq, amplitude, IF_phase, duration, I_wav, Q_wav)
 end
-
-
-"""
-           DigitalPulse(IF_freq::Real, amplitude::Real, duration::Real, ::Type{CosEnvelope},
-                      sample_rate::Real, IF_phase::Real = 0)
-           DigitalPulse(IF_freq::Real, amplitude::Real, duration::Real, ::Type{RectEnvelope},
-                      sample_rate::Real, IF_phase::Real = 0)
-
-Function for making objetcs of the `DigitalPulse` type. Besides fields on the type,
-this function also takes as input singleton objects of subtypes of the abstract type
-`Envelope`; this input determines what kind of envelope will be synthesized to be
-multiplied to the periodic signal to make the final I and Q waveforms
-"""
-function DigitalPulse end
 
 function DigitalPulse(IF_freq::Real, amplitude::Real, duration::Real, ::Type{CosEnvelope},
                       sample_rate::Real, IF_phase::Real = 0; name = "CosEnvelope_"*
@@ -163,6 +166,19 @@ An object of the `DCPulse` subtype is meant to be a handle to square pulses whic
 are used to entangle two qubits; where the pulse is generated directly by a channel's
 arbitrary waveform generator. It holds the actual pulse waveform, as well as
 it's duration and amplitude information to configure the channel that will be outputting the pulse
+
+There are two inner constructors to make an `DCPulse` object:
+        DCPulse(amplitude, duration, waveform)
+        DCPulse(amplitude)
+
+as well as an overloaded function which allows for standard/optional arguments:
+        DCPulse(amplitude::Real, duration::Real, ::Type{SineEdge}, sample_rate::Real,
+          edge_freq = 20e6)
+        DCPulse(amplitude::Real, duration::Real, ::Type{RectEdge}, sample_rate::Real)
+
+where besides fields on the type, the function also takes as input singleton objects of
+subtypes of the abstract type `Edge`; this input determines what kind of edges the
+square pulse will have.
 """
 mutable struct DCPulse <: Pulse
     amplitude::Float64
@@ -172,17 +188,6 @@ mutable struct DCPulse <: Pulse
     DCPulse(amplitude, duration, waveform) = new(amplitude, duration, waveform)
     DCPulse(amplitude) = new(amplitude)
 end
-
-"""
-            DCPulse(amplitude::Real, duration::Real, ::Type{SineEdge}, sample_rate::Real,
-                      edge_freq = 20e6)
-            DCPulse(amplitude::Real, duration::Real, ::Type{RectEdge}, sample_rate::Real)
-
-Function for making objetcs of the `DCPulse` type. Besides fields on the type,
-this function also takes as input singleton objects of subtypes of the abstract type
-`Edge`; this input determines what kind of edges the square pulse will have.
-"""
-function DCPulse end
 
 function DCPulse(amplitude::Real, duration::Real, ::Type{SineEdge}, sample_rate::Real;
              name = "DCPulse_"*string(amplitude)*"_"*string(duration), edge_freq::Real = 20e6)
@@ -199,6 +204,19 @@ function DCPulse(amplitude::Real, duration::Real, ::Type{RectEdge}, sample_rate:
     return pulse
 end
 
+"""
+An object of the `DelayPulse` subtype is meant to be a handle to "pulses" which
+just consist zero output, which provide a means of inserting delays between
+non-delay pulses. The object holds the duration of the pulse as well as the actual
+pulse waveform. There are two inner constructors for making this object:
+
+        DelayPulse(duration::Real, sample_rate::Real; name = "Delay_" * string(duration) * "s")
+        DelayPulse(duration::Real, waveform::Waveform) = new(duration, waveform)
+
+The second constructor takes as input both fields of the object; the first constructor
+takes as input the duration, sample_rate and a name, constructs the waveform
+and then makes the object.
+"""
 mutable struct DelayPulse <: Pulse
     duration::Float64
     waveform::Waveform
@@ -212,7 +230,22 @@ mutable struct DelayPulse <: Pulse
     DelayPulse(duration::Real, waveform::Waveform) = new(duration, waveform)
 end
 
-#loading pulse functions
+"""
+        load_pulse(awg::InsAWGM320XA, pulse::Pulse, id::Integer)
+        load_pulse(awg::InsAWGM320XA, pulse::DigitalPulse, I_id::Integer, Q_id::Integer)
+        load_pulse(awg::InsAWGM320XA, pulse::Pulse, name::AbstractString)
+        load_pulse(awg::InsAWGM320XA, pulse::Pulse)
+
+Funtion to load the waveforms of pulse objects. If id(s) are provided as input,
+then the waveforms are loaded with those id(s). If a name is provided as input, then
+the function first looks to see if there is a waveform with the pulse's waveform name
+already loaded in the awg, and if there is, it loads the new pulse waveform with that
+same id (thereby replacing the old waveform with the same name in memory). If there is
+not a waveform with the pulse's waveform name already loaded, then it simply loads
+the pulse waveform with an id +1 bigger than the largest waveform id of the waveforms
+loaded in the awg.
+"""
+function load_pulse end
 
 load_pulse(awg::InsAWGM320XA, pulse::AnalogPulse, id::Integer) = load_waveform(awg, pulse.envelope, id)
 
@@ -239,6 +272,9 @@ function load_pulse(awg::InsAWGM320XA, pulse::DelayPulse, name::AbstractString)
     end
     nothing
 end
+
+#load_pulse(awg, pulse::DigitalPulse, name) doesn't exists because that pulse type...
+#... has two different waveforms with two different names
 
 function load_pulse(awg::InsAWGM320XA, pulse::AnalogPulse, name::AbstractString)
     if !(pulse.envelope in values(awg.waveforms))
