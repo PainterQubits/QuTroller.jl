@@ -37,7 +37,7 @@ function source(stim::T1, τ::Real)
 
     #awgXY queueing
     queue_waveform.(awgXY, stim.IQ_XY_chs, πPulse.envelope, :External, delay = xy_fudge)
-    queue_waveform.(awgXY, stim.IQ_XY_chs, τ_delay, :Auto)
+    queue_waveform.(awgXY, stim.IQ_XY_chs, τ_delay.waveform, :Auto)
     queue_waveform.(awgXY, stim.IQ_XY_chs, readoutPulse_delay_id, :Auto)
     queue_waveform.(awgXY, stim.IQ_XY_chs, delay_id_XY,  :Auto, repetitions = decay_num_20ns - Int(xy_fudge/2))
     # queue_waveform.(awgXY, stim.IQ_XY_chs, readoutPulse_delay_id,  :Auto)
@@ -46,7 +46,7 @@ function source(stim::T1, τ::Real)
     #awgRead queueing
     read_I = stim.IQ_readout_chs[1]
     read_Q = stim.IQ_readout_chs[2]
-    queue_waveform.(awgRead, stim.IQ_readout_chs, read_T1_delay, :External, delay = read_fudge)
+    queue_waveform.(awgRead, stim.IQ_readout_chs, read_T1_delay.waveform, :External, delay = read_fudge)
     queue_waveform(awgRead, read_I, readoutPulse.I_waveform, :Auto)
     queue_waveform(awgRead, read_Q, readoutPulse.Q_waveform, :Auto)
     queue_waveform.(awgRead, stim.IQ_readout_chs, delay_id_Read, :Auto, repetitions = decay_num_20ns - Int(read_fudge/2))
@@ -55,7 +55,7 @@ function source(stim::T1, τ::Real)
     # queue_waveform.(awgRead, stim.IQ_readout_chs, delay_id_Read,  :Auto, repetitions = end_num_20ns - Int(read_fudge/2))
 
     #awgMarker queueing
-    queue_waveform(awgMarker, stim.markerCh, marker_T1_delay, :External)
+    queue_waveform(awgMarker, stim.markerCh, marker_T1_delay.waveform, :External)
     queue_waveform(awgMarker, stim.markerCh, markerPulseID, :Auto)
     queue_waveform(awgMarker, stim.markerCh, delay_id_Marker, :Auto, repetitions = decay_num_20ns)
     # queue_waveform(awgMarker, stim.markerCh, markerPulseID, :Auto)
@@ -121,7 +121,7 @@ function source(stim::Rabi, t::Real)
     #awgRead queueing
     read_I = stim.IQ_readout_chs[1]
     read_Q = stim.IQ_readout_chs[2]
-    queue_waveform.(awgRead, stim.IQ_readout_chs, read_Rabi_delay, :External, delay = read_fudge)
+    queue_waveform.(awgRead, stim.IQ_readout_chs, read_Rabi_delay.waveform, :External, delay = read_fudge)
     queue_waveform(awgRead, read_I, readoutPulse.I_waveform, :Auto)
     queue_waveform(awgRead, read_Q, readoutPulse.Q_waveform, :Auto)
     queue_waveform.(awgRead, stim.IQ_readout_chs, delay_id_Read, :Auto, repetitions = decay_num_20ns - Int(read_fudge/2))
@@ -130,7 +130,7 @@ function source(stim::Rabi, t::Real)
     # queue_waveform.(awgRead, stim.IQ_readout_chs, delay_id_Read, :Auto, repetitions = end_num_20ns - Int(read_fudge/2))
 
     #awgMarker queueing
-    queue_waveform(awgMarker, stim.markerCh, marker_Rabi_delay, :External)
+    queue_waveform(awgMarker, stim.markerCh, marker_Rabi_delay.waveform, :External)
     queue_waveform(awgMarker, stim.markerCh, markerPulseID,  :Auto)
     queue_waveform(awgMarker, stim.markerCh, delay_id_Marker, :Auto, repetitions = decay_num_20ns)
     # queue_waveform.(awgMarker, stim.markerCh, markerPulseID, :Auto)
@@ -181,7 +181,7 @@ function source(stim::Ramsey, τ::Real)
 
     #awgXY queueing
     queue_waveform.(awgXY, stim.IQ_XY_chs, π_2Pulse.envelope, :External, delay = xy_fudge)
-    queue_waveform.(awgXY, stim.IQ_XY_chs, τ_delay, :Auto)
+    queue_waveform.(awgXY, stim.IQ_XY_chs, τ_delay.waveform, :Auto)
     queue_waveform.(awgXY, stim.IQ_XY_chs, π_2Pulse.envelope, :Auto)
     queue_waveform.(awgXY, stim.IQ_XY_chs, readoutPulse_delay_id, :Auto)
     queue_waveform.(awgXY, stim.IQ_XY_chs, delay_id_XY, :Auto, repetitions = decay_num_20ns - Int(xy_fudge/2))
@@ -191,7 +191,7 @@ function source(stim::Ramsey, τ::Real)
     #awgRead queueing
     read_I = stim.IQ_readout_chs[1]
     read_Q = stim.IQ_readout_chs[2]
-    queue_waveform.(awgRead, stim.IQ_readout_chs, read_Ramsey_delay, :External, delay = read_fudge)
+    queue_waveform.(awgRead, stim.IQ_readout_chs, read_Ramsey_delay.waveform, :External, delay = read_fudge)
     queue_waveform(awgRead, read_I, readoutPulse.I_waveform, :Auto)
     queue_waveform(awgRead, read_Q, readoutPulse.Q_waveform, :Auto)
     queue_waveform.(awgRead, stim.IQ_readout_chs, delay_id_Read, :Auto, repetitions = decay_num_20ns -Int(read_fudge/2))
@@ -200,7 +200,7 @@ function source(stim::Ramsey, τ::Real)
     # queue_waveform.(awgRead, stim.IQ_readout_chs, delay_id_Read, :Auto, repetitions = end_num_20ns-Int(read_fudge/2))
 
     #awgMarker queueing
-    queue_waveform(awgMarker, stim.markerCh, marker_Ramsey_delay, :External)
+    queue_waveform(awgMarker, stim.markerCh, marker_Ramsey_delay.waveform, :External)
     queue_waveform(awgMarker, stim.markerCh, markerPulseID, :Auto)
     queue_waveform(awgMarker, stim.markerCh, delay_id_Marker, :Auto, repetitions = decay_num_20ns)
     # queue_waveform(awgMarker, stim.markerCh, markerPulseID, :Auto)
@@ -222,7 +222,6 @@ function source(stim::ReadoutReference)
     decay_num_20ns = Int(div(stim.delay + 1e-9,20e-9)) #added extra 1e-9 because of floating point issues
     read_fudge = 8  #there is a delay in output when outputting directly from the AWG, vs outputting from FG and amplitude modulating it
     markerPulseID = find_wav_id(awgMarker, "Markers_Voltage=1.5")
-    delay_id_XY = find_wav_id(awgXY, "20ns_delay")
     delay_id_Read = find_wav_id(awgRead, "20ns_delay")
     delay_id_Marker = find_wav_id(awgMarker, "20ns_delay")
 
@@ -235,8 +234,8 @@ function source(stim::ReadoutReference)
     #awgRead queueing
     read_I = stim.IQ_readout_chs[1]
     read_Q = stim.IQ_readout_chs[2]
-    queue_waveform(awgRead, read_I, readoutPulse.I_waveform, :External)
-    queue_waveform(awgRead, read_Q, readoutPulse.Q_waveform, :External)
+    queue_waveform(awgRead, read_I, readoutPulse.I_waveform, :External, delay = read_fudge)
+    queue_waveform(awgRead, read_Q, readoutPulse.Q_waveform, :External, delay = read_fudge)
     queue_waveform.(awgRead, stim.IQ_readout_chs, delay_id_Read, :Auto, repetitions = decay_num_20ns - Int(read_fudge/2))
 
     #awgMarker queueing
