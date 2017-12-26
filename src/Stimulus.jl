@@ -2,6 +2,7 @@ export QubitCharacterization
 export T1
 export Rabi
 export Ramsey
+export ReadoutReference
 
 global const DECAY_TIME = 60e-6 #temporary delay for testing purposes
 global const END_TIME = 60e-6 #temporary delay for testing purposes
@@ -424,8 +425,8 @@ The corresponding source function is source(stim).
 """
 mutable struct ReadoutReference <: Stimulus
     #AWGs
-    awgRead::InsAWGM30XA
-    awgMarker::InsAWGM30XA
+    awgRead::InsAWGM320XA
+    awgMarker::InsAWGM320XA
     #pulses
     readoutPulse::DigitalPulse
     delay::Float64
