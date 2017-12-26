@@ -442,4 +442,23 @@ mutable struct ReadoutReference <: Stimulus
         new(awgRead, awgMarker, readoutPulse, delay, IQ_readout_chs, markerCh, PXI_line)
 end
 
+mutable struct PiNoPiTesting <: Stimulus
+    #AWGs
+    awgRead::InsAWGM320XA
+    awgMarker::InsAWGM320XA
+    #pulses
+    readoutPulse::DigitalPulse
+    delay::Float64
+    #awg configuration information
+    IQ_readout_chs::Tuple{Int,Int}
+    markerCh::Int
+    PXI_line::Int
+
+    PiNoPiTesting(awgRead, awgMarker, readoutPulse, delay, IQ_readout_chs) =
+        new(awgRead, awgMarker, readoutPulse, delay, IQ_readout_chs, MARKER_CH, PXI_LINE)
+
+    PiNoPiTesting(awgRead, awgMarker, readoutPulse, delay, IQ_readout_chs, markerCh, PXI_line) =
+        new(awgRead, awgMarker, readoutPulse, delay, IQ_readout_chs, markerCh, PXI_line)
+end
+
 include("source.jl")

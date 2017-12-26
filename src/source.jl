@@ -416,3 +416,45 @@ function source(stim::ReadoutReference)
     awg_start(awgMarker, stim.markerCh)
     nothing
 end
+
+function source(stim::PiNoPiTesting)
+    awgRead = stim.awgRead
+    awgMarker = stim.awgMarker
+    readoutPulse = stim.readoutPulse
+
+    #computing delays and loading delays
+    decay_num_20ns = Int(div(stim.delay + 1e-9,20e-9)) #added extra 1e-9 because of floating point issues
+    read_fudge = 8  #there is a delay in output when outputting directly from the AWG, vs outputting from FG and amplitude modulating it
+    markerPulseID = find_wav_id(awgMarker, "Markers_Voltage=1.5")
+    delay_id_Read = find_wav_id(awgRead, "20ns_delay")
+    delay_id_Marker = find_wav_id(awgMarker, "20ns_delay")
+
+    read_delay = DelayPulse(readoutPulse.duration, awgRead[SampleRate], "read_delay")
+    load_pulse(awgRead, read_delay, "read_delay")
+
+    awg_stop(awgRead, stim.IQ_readout_chs...)
+    awg_stop(awgMarker, stim.markerCh)
+    queue_flush.(awgRead, stim.IQ_readout_chs)
+    queue_flush(awgMarker, stim.markerCh)
+    sleep(0.001)
+
+    #awgRead queueing
+    read_I = stim.IQ_readout_chs[1]
+    read_Q = stim.IQ_readout_chs[2]
+    queue_waveform(awgRead, read_I, readoutPulse.I_waveform, :External, delay = read_fudge)
+    queue_waveform(awgRead, read_Q, readoutPulse.Q_waveform, :External, delay = read_fudge)
+    queue_waveform.(awgRead, stim.IQ_readout_chs, delay_id_Read, :Auto, repetitions = decay_num_20ns)
+    queue_waveform.(awgRead, stim.IQ_readout_chs, read_delay.waveform, :Auto)
+    queue_waveform.(awgRead, stim.IQ_readout_chs, delay_id_Read, :Auto, repetitions = decay_num_20ns - Int(read_fudge/2))
+
+    #awgMarker queueing
+    queue_waveform(awgMarker, stim.markerCh, markerPulseID, :External)
+    queue_waveform(awgMarker, stim.markerCh, delay_id_Marker, :Auto, repetitions = decay_num_20ns)
+    queue_waveform(awgMarker, stim.markerCh, markerPulseID, :Auto)
+    queue_waveform(awgMarker, stim.markerCh, delay_id_Marker, :Auto, repetitions = decay_num_20ns)
+
+    #Start AWGs
+    awg_start(awgRead, stim.IQ_readout_chs...)
+    awg_start(awgMarker, stim.markerCh)
+    nothing
+end
