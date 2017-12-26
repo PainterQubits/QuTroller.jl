@@ -4,6 +4,7 @@ export configure_awgs
         configure_awgs(stim::T1)
         configure_awgs(stim::Rabi)
         configure_awgs(stim::Ramsey)
+        configure_awgs(stim::StarkShift)
         configure_awgs(stim::ReadoutReference)
 
 Function to configure AWG channels and load appropriate waveforms prior to
@@ -103,6 +104,16 @@ function configure_awgs(stim::Ramsey)
     #I make a T1 object because these two types have the exact same fields and
     #configuration instructions, they only differ on the source function
     temp_T1 = T1(stim.awgXY, stim.awgRead, stim.awgMarker, stim.π_2Pulse, stim.readoutPulse, stim.decay_delay,
+                 stim.end_delay, stim.IQ_XY_chs, stim.IQ_readout_chs, stim.markerCh, stim.PXI_line, stim.axisname, stim.axislabel)
+    configure_awgs(temp_T1)
+    nothing
+end
+
+
+function configure_awgs(stim::StarkShift)
+    #I make a T1 object because these two types have the exact same fields and
+    #configuration instructions, they only differ on the source function
+    temp_T1 = T1(stim.awgXY, stim.awgRead, stim.awgMarker, stim.πPulse, stim.readoutPulse, stim.ringdown_delay,
                  stim.end_delay, stim.IQ_XY_chs, stim.IQ_readout_chs, stim.markerCh, stim.PXI_line, stim.axisname, stim.axislabel)
     configure_awgs(temp_T1)
     nothing

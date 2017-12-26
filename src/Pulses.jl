@@ -90,6 +90,14 @@ function AnalogPulse(IF_freq::Real, amplitude::Real, duration::Real, ::Type{CosE
                     sample_rate::Real, IF_phase::Real = 0; name = "CosEnvelope_"*
                     string(amplitude)*"_"*string(duration))
         env = Waveform(make_CosEnvelope(duration, sample_rate), name)
+        #loop below front-pads pulses with zeros
+        if (rem(round(duration/1e-9), 10) != 0.0)
+            ten_ns = Int(round(10e-9*sample_rate))
+            pad_zeros = ten_ns - Int(rem(round(duration*sample_rate), ten_ns))
+            env.waveformValues = append!(zeros(pad_zeros), env.waveformValues)
+            duration = size(env.waveformValues)/sample_rate
+            println("Your pulse was front-padded with zeros to achieve correct samples number")
+        end
         pulse = AnalogPulse(IF_freq, amplitude, IF_phase, duration, env)
         return pulse
 end
@@ -98,6 +106,14 @@ function AnalogPulse(IF_freq::Real, amplitude::Real, duration::Real, ::Type{Rect
                      sample_rate::Real, IF_phase::Real = 0; name = "RectEnvelope_"*
                      string(amplitude)*"_"*string(duration))
         env = Waveform(make_RectEnvelope(duration, sample_rate), name)
+        #loop below front-pads pulses with zeros
+        if (rem(round(duration/1e-9), 10) != 0.0)
+            ten_ns = Int(round(10e-9*sample_rate))
+            pad_zeros = ten_ns - Int(rem(round(duration*sample_rate), ten_ns))
+            env.waveformValues = append!(zeros(pad_zeros), env.waveformValues)
+            duration = size(env.waveformValues)/sample_rate
+            println("Your pulse was front-padded with zeros to achieve correct samples number")
+        end
         pulse = AnalogPulse(IF_freq, amplitude, IF_phase, duration, env)
         return pulse
 end
@@ -200,6 +216,13 @@ function DCPulse(amplitude::Real, duration::Real, ::Type{RectEdge}, sample_rate:
              name = "DCPulse_"*string(amplitude)*"_"*string(duration))
     offset = make_RectEnvelope(duration, sample_rate)
     offset_wav = Waveform(offset, name)
+    if (rem(round(duration/1e-9), 10) != 0.0)
+        ten_ns = Int(round(10e-9*sample_rate))
+        pad_zeros = ten_ns - Int(rem(round(duration*sample_rate), ten_ns))
+        append!(offset_wav.waveformValues, zeros(pad_zeros))
+        duration = size(offset_wav.waveformValues)/sample_rate
+        println("Your pulse was back-padded with zeros to achieve correct samples number")
+    end
     pulse = DCPulse(amplitude, duration, offset_wav)
     return pulse
 end
@@ -273,12 +296,18 @@ function load_pulse(awg::InsAWGM320XA, pulse::DelayPulse, name::AbstractString)
     nothing
 end
 
-#load_pulse(awg, pulse::DigitalPulse, name) doesn't exists because that pulse type...
-#... has two different waveforms with two different names
-
 function load_pulse(awg::InsAWGM320XA, pulse::AnalogPulse, name::AbstractString)
     if !(pulse.envelope in values(awg.waveforms))
         load_waveform(awg, pulse.envelope, find_wav_id(awg, name))
+    end
+    nothing
+end
+
+function load_pulse(awg::InsAWGM320XA, pulse::DigitalPulse, name::AbstractString)
+    if !(pulse.I_waveform in values(awg.waveforms))
+        load_waveform(awg, pulse.I_waveform, find_wav_id(awg, "I_"*name))
+    if !(pulse.Q_waveform in values(awg.waveforms))
+        load_waveform(awg, pulse.Q_waveform, find_wav_id(awg, "Q_"*name))
     end
     nothing
 end
@@ -323,6 +352,14 @@ function DigitalPulse_general(IF_freq::Real, amplitude::Real, duration::Real,
     Q_pulse = imag(full_pulse)
     I_wav = Waveform(I_pulse, "I_"*name)
     Q_wav = Waveform(Q_pulse, "Q_"*name)
+    if (rem(round(duration/1e-9), 10) != 0.0)
+        ten_ns = Int(round(10e-9*sample_rate))
+        pad_zeros = ten_ns - Int(rem(round(duration*sample_rate), ten_ns))
+        append!(I_wav.waveformValues, zeros(pad_zeros))
+        append!(Q_wav.waveformValues, zeros(pad_zeros))
+        duration = size(I_wav.waveformValues)/sample_rate
+        println("Your pulse was back-padded with zeros to achieve correct samples number")
+    end
     pulse = DigitalPulse(IF_freq, amplitude, IF_phase, duration, I_wav, Q_wav)
     return pulse
  end
@@ -333,6 +370,13 @@ function DCPulse_general(amplitude::Real, duration::Real, rising_edge::Vector{Fl
     dc_part = ones(num_t_points - size(rising_edge)[1] - size(falling_edge)[1])
     pulse_values = vcat(rising_edge, dc_part, falling_edge)
     pulse_wav = Waveform(pulse_values, name)
+    if (rem(round(duration/1e-9), 10) != 0.0)
+        ten_ns = Int(round(10e-9*sample_rate))
+        pad_zeros = ten_ns - Int(rem(round(duration*sample_rate), ten_ns))
+        append!(pulse_wav.waveformValues, zeros(pad_zeros))
+        duration = size(pulse_wav.waveformValues)/sample_rate
+        println("Your pulse was back-padded with zeros to achieve correct samples number")
+    end
     pulse = DCPulse(amplitude, duration, pulse_wav)
     return pulse
 end
