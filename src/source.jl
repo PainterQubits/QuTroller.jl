@@ -1,5 +1,6 @@
 function source(stim::T1, τ::Real)
     τ<20e-9 && error("τ must be at least 20ns")
+    (rem(round(τ/1e-9), 10) != 0.0) && error("τ must be in mutiple of 10ns")
     #renaming for convinience
     awgXY = stim.awgXY
     awgRead = stim.awgRead
@@ -70,7 +71,6 @@ end
 
 function source(stim::Rabi, t::Real)
     t<20e-9 && error("t must be at least 20ns")
-    (rem(round(t/1e-9), 10) != 0.0) && error("XY pulse length must be in mutiple of 10ns")
     #renaming for convinience
     awgXY = stim.awgXY
     awgRead = stim.awgRead
@@ -82,6 +82,12 @@ function source(stim::Rabi, t::Real)
     sample_rate = awgXY[SampleRate]
     XYPulse.duration = t
     env = make_CosEnvelope(t, sample_rate)
+    if (rem(floor(t/1e-9 + 0.001), 10) != 0.0)
+        ten_ns = Int(round(10e-9*sample_rate))
+        pad_zeros = ten_ns - Int(rem(floor(t*sample_rate + 0.001), ten_ns))
+        env = append!(zeros(pad_zeros), env)
+        XYPulse.duration = size(env)[1]/sample_rate
+    end
     XYPulse.envelope = Waveform(env, "Rabi_XYPulse")
     load_pulse(awgXY, XYPulse, "Rabi_XYPulse")
 
@@ -90,8 +96,8 @@ function source(stim::Rabi, t::Real)
     end_num_20ns = Int(div(stim.end_delay + 1e-9,20e-9)) #added extra 1e-9 because of floating point issues
     read_fudge = 8  #channels 1 and 3 on awg in slot 3 are somewhat unsynced, this is a fudge factor--> might depend on whatever awgs and whatever channels
     xy_fudge = 2 #there is a delay in output when outputting from the fast AWG compared the slow AWG
-    read_Rabi_delay = DelayPulse(t, awgRead[SampleRate], name = "read_Rabi_delay")
-    marker_Rabi_delay = DelayPulse(t, awgMarker[SampleRate], name = "marker_Rabi_delay")
+    read_Rabi_delay = DelayPulse(XYPulse.duration, awgRead[SampleRate], name = "read_Rabi_delay")
+    marker_Rabi_delay = DelayPulse(XYPulse.duration, awgMarker[SampleRate], name = "marker_Rabi_delay")
     load_pulse(awgRead, read_Rabi_delay, "read_Rabi_delay")
     load_pulse(awgMarker, marker_Rabi_delay, "marker_Rabi_delay")
     readoutPulse_delay_id = find_wav_id(awgXY, "readoutPulse_delay")
@@ -145,6 +151,7 @@ end
 
 function source(stim::Ramsey, τ::Real)
     τ<20e-9 && error("τ must be at least 20ns")
+    (rem(round(τ/1e-9), 10) != 0.0) && error("τ must be in mutiple of 10ns")
     awgXY = stim.awgXY
     awgRead = stim.awgRead
     awgMarker = stim.awgMarker
@@ -215,7 +222,6 @@ end
 
 function source(stim::StarkShift, t::Real)
     t<20e-9 && error("t must be at least 20ns")
-    (rem(round(t/1e-9), 10) != 0.0) && error("drive pulse length must be in mutiple of 10ns")
     #renaming for convinience
     awgXY = stim.awgXY
     awgRead = stim.awgRead
@@ -225,7 +231,7 @@ function source(stim::StarkShift, t::Real)
 
     #make drive pulse and load it
     drivePulse = DigitalPulse(readoutPulse.IF_freq, readoutPulse.amplitude, t, RectEnvelope,
-                              awgRead[SampleRate], IF_phase = readoutPulse.IF_phase, name = "Readout Drive Pulse")
+                              awgRead[SampleRate], readoutPulse.IF_phase, name = "Readout Drive Pulse")
     load_pulse(awgXY, drivePulse, "Readout Drive Pulse")
 
     #computing delays and loading delays
@@ -233,9 +239,9 @@ function source(stim::StarkShift, t::Real)
     end_num_20ns = Int(div(stim.end_delay + 1e-9,20e-9)) #added extra 1e-9 because of floating point issues
     read_fudge = 8  #channels 1 and 3 on awg in slot 3 are somewhat unsynced, this is a fudge factor--> might depend on whatever awgs and whatever channels
     xy_fudge = 2 #there is a delay in output when outputting from the fast AWG compared the slow AWG
-    xy_stark_delay = DelayPulse(t, awgXY[SampleRate], name = "xy_stark_delay")
+    xy_stark_delay = DelayPulse(drivePulse.duration, awgXY[SampleRate], name = "xy_stark_delay")
     read_stark_delay = DelayPulse(πPulse.duration, awgRead[SampleRate], name = "read_stark_delay")
-    marker_stark_delay = DelayPulse(t + πPulse.duration, awgMarker[SampleRate], name = "marker_stark_delay")
+    marker_stark_delay = DelayPulse(drivePulse.duration + πPulse.duration, awgMarker[SampleRate], name = "marker_stark_delay")
     load_pulse(awgXY, xy_stark_delay, "xy_stark_delay")
     load_pulse(awgRead, read_stark_delay, "read_stark_delay")
     load_pulse(awgMarker, marker_stark_delay, "marker_stark_delay")
@@ -266,8 +272,8 @@ function source(stim::StarkShift, t::Real)
     #awgRead queueing
     read_I = stim.IQ_readout_chs[1]
     read_Q = stim.IQ_readout_chs[2]
-    queue_waveform(awgRead, read_I, drivePulse.I_waveform, :External)
-    queue_waveform(awgRead, read_Q, drivePulse.Q_waveform, :External)
+    queue_waveform(awgRead, read_I, drivePulse.I_waveform, :External, delay = read_fudge)
+    queue_waveform(awgRead, read_Q, drivePulse.Q_waveform, :External, delay = read_fudge)
     queue_waveform.(awgRead, stim.IQ_readout_chs, read_stark_delay.waveform, :Auto)
     queue_waveform.(awgRead, stim.IQ_readout_chs, delay_id_Read, :Auto, repetitions = ringdown_num_20ns)
     queue_waveform(awgRead, read_I, readoutPulse.I_waveform, :Auto)
@@ -310,15 +316,15 @@ function source(stim::CPecho)
              πPulse.envelope.waveformValues, zeros(π_2_delay_samples), π_2Pulse.envelope.waveformValues)
     CP_waveform = Waveform(CPecho_pulse_sequence, "CPecho_pulse_sequence")
     load_waveform(awgXY, CP_waveform, find_wav_id(awgXY, "CPecho_pulse_sequence"))
-    CP_duration = size(CPecho_pulse_sequence)/awgXY[SampleRate]
+    CP_duration = size(CPecho_pulse_sequence)[1]/awgXY[SampleRate]
 
     #computing delays and loading delays
     decay_num_20ns = Int(div(stim.decay_delay + 1e-9,20e-9)) #added extra 1e-9 because of floating point issues
     end_num_20ns = Int(div(stim.end_delay + 1e-9,20e-9)) #added extra 1e-9 because of floating point issues
     read_fudge = 8  #channels 1 and 3 on awg in slot 3 are somewhat unsynced, this is a fudge factor--> might depend on whatever awgs and whatever channels
     xy_fudge = 2 #there is a delay in output when outputting from the fast AWG compared the slow AWG
-    read_CPecho_delay = DelayPulse(CP_duration, awgXY[SampleRate], "read_CPecho_delay")
-    marker_CPecho_delay = DelayPulse(CP_duration, awgMarker[SampleRate], "marker_CPecho_delay")
+    read_CPecho_delay = DelayPulse(CP_duration, awgXY[SampleRate], name = "read_CPecho_delay")
+    marker_CPecho_delay = DelayPulse(CP_duration, awgMarker[SampleRate], name = "marker_CPecho_delay")
     load_pulse(awgRead, read_CPecho_delay, "read_CPecho_delay")
     load_pulse(awgMarker, marker_CPecho_delay, "marker_CPecho_delay")
     readoutPulse_delay_id = find_wav_id(awgXY, "readoutPulse_delay")
@@ -429,7 +435,7 @@ function source(stim::PiNoPiTesting)
     delay_id_Read = find_wav_id(awgRead, "20ns_delay")
     delay_id_Marker = find_wav_id(awgMarker, "20ns_delay")
 
-    read_delay = DelayPulse(readoutPulse.duration, awgRead[SampleRate], "read_delay")
+    read_delay = DelayPulse(readoutPulse.duration, awgRead[SampleRate], name = "read_delay")
     load_pulse(awgRead, read_delay, "read_delay")
 
     awg_stop(awgRead, stim.IQ_readout_chs...)

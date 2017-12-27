@@ -74,8 +74,6 @@ function configure_awgs_general(stim::QubitCharacterization)
 end
 
 function configure_awgs(stim::T1)
-    (rem(round(stim.πPulse.duration/1e-9), 10) != 0.0) &&
-                        error("XY pulse length must be in mutiple of 10ns")
     configure_awgs_general(stim)
     awgXY = stim.awgXY
     πPulse = stim.πPulse
@@ -121,7 +119,75 @@ function configure_awgs(stim::StarkShift)
     nothing
 end
 
+function configure_awgs(stim::CPecho)
+    configure_awgs_general(stim)
+    awgXY = stim.awgXY
+    πPulse = stim.πPulse
+    π_2Pulse = stim.π_2Pulse
+    load_pulse(awgXY, πPulse)
+    load_pulse(awgXY, π_2Pulse)
+    awgXY[AmpModGain, stim.IQ_XY_chs...] = πPulse.amplitude
+    awgXY[FGFrequency, stim.IQ_XY_chs...] = πPulse.IF_freq
+    @KSerror_handler SD_AOU_channelPhaseResetMultiple(awgXY.ID,  nums_to_mask(stim.IQ_XY_chs...))
+    sleep(0.001)
+    awgXY[FGPhase, stim.IQ_XY_chs[1]] = stim.πPulse.IF_phase
+    awgXY[FGPhase, stim.IQ_XY_chs[2]] = stim.πPulse.IF_phase - 90 #cos(phi -pi/2) = sin(phi)
+    nothing
+end
+
+function configure_awgs(stim::CPecho_n)
+    configure_awgs(stim.CPstim)
+end
+
+function configure_awgs(stim::CPecho_τ)
+    configure_awgs(stim.CPstim)
+end
+
 function configure_awgs(stim::ReadoutReference)
+    (rem(round(stim.readoutPulse.duration/1e-9), 10) != 0.0) &&
+                        error("Readout pulse length must be in mutiple of 10ns")
+    awgRead = stim.awgRead
+    awgMarker = stim.awgMarker
+    awg_stop(awgRead, stim.IQ_readout_chs...)
+    awg_stop(awgMarker, stim.markerCh)
+
+    #Configuring Readout channels
+    awgRead[OutputMode, stim.IQ_readout_chs...] = :Arbitrary
+    awgRead[Amplitude,stim.IQ_readout_chs...] = stim.readoutPulse.amplitude
+    awgRead[DCOffset, stim.IQ_readout_chs...] = 0
+    awgRead[QueueCycleMode, stim.IQ_readout_chs...] = :Cyclic
+    awgRead[QueueSyncMode, stim.IQ_readout_chs...] = :CLK10
+    awgRead[TrigSource, stim.IQ_readout_chs...] = stim.PXI_line
+    awgRead[TrigBehavior, stim.IQ_readout_chs...] = :Low
+    awgRead[TrigSync, stim.IQ_readout_chs...] = :CLK10
+    awgRead[AmpModMode, stim.IQ_readout_chs...] = :Off
+    awgRead[AngModMode, stim.IQ_readout_chs...] = :Off
+
+    #Configuring marker channel
+    awgMarker[OutputMode, stim.markerCh] = :Arbitrary
+    awgMarker[Amplitude, stim.markerCh] = 1.5 #arbitrary marker voltage I chose
+    awgMarker[DCOffset, stim.markerCh] = 0
+    awgMarker[QueueCycleMode, stim.markerCh] = :Cyclic
+    awgMarker[QueueSyncMode, stim.markerCh] = :CLK10
+    awgMarker[TrigSource, stim.markerCh] = stim.PXI_line
+    awgMarker[TrigBehavior, stim.markerCh] = :Low
+    awgMarker[TrigSync, stim.markerCh] = :CLK10
+    awgMarker[AmpModMode, stim.markerCh] = :Off
+    awgMarker[AngModMode, stim.markerCh] = :Off
+
+    #loading readout, marker, and delay pulses
+    load_pulse(awgRead, stim.readoutPulse)
+    marker_pulse = DCPulse(1.5, stim.readoutPulse.duration, RectEdge, awgMarker[SampleRate],
+                           name = "Markers_Voltage=1.5")
+    load_pulse(awgMarker, marker_pulse, "Markers_Voltage=1.5")
+    read_delay_20ns = DelayPulse(20e-9, awgRead[SampleRate], name = "20ns_delay")
+    load_pulse(awgRead, read_delay_20ns, "20ns_delay")
+    marker_delay_20ns = DelayPulse(20e-9, awgMarker[SampleRate], name = "20ns_delay")
+    load_pulse(awgMarker, marker_delay_20ns, "20ns_delay")
+    nothing
+end
+
+function configure_awgs(stim::PiNoPiTesting)
     (rem(round(stim.readoutPulse.duration/1e-9), 10) != 0.0) &&
                         error("Readout pulse length must be in mutiple of 10ns")
     awgRead = stim.awgRead

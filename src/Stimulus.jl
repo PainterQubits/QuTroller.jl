@@ -2,6 +2,11 @@ export QubitCharacterization
 export T1
 export Rabi
 export Ramsey
+export StarkShift
+export CPecho
+export CPecho_n
+export CPecho_τ
+export PiNoPiTesting
 export ReadoutReference
 
 global const DECAY_TIME = 60e-6 #temporary delay for testing purposes
@@ -113,8 +118,8 @@ end
 ```
 
 Stimulus type for doing Rabi Oscillations with a qubit. The corresponding source function
-is `source(stim, τ)`, where τ is the delay the length of the XY pulse.
-Currently, τ cannot be less than 20ns (the equipment cannot queue waveforms of
+is `source(stim, t)`, where t is the the length of the XY pulse.
+Currently, t cannot be less than 20ns (the equipment cannot queue waveforms of
 less than 20ns), and the decay_delay and end_delay are automatically converted to be
 multiples of 20ns (for efficient implementation).
 """
@@ -286,7 +291,7 @@ mutable struct StarkShift <: QubitCharacterization
     StarkShift(awgXY, awgRead, awgMarker, πPulse, readoutPulse, ringdown_delay,
         end_delay, IQ_XY_chs, IQ_readout_chs) = new(awgXY, awgRead, awgMarker, πPulse,
         readoutPulse, ringdown_delay, end_delay, IQ_XY_chs, IQ_readout_chs,
-        MARKER_CH, PXI_LINE, :t1delay, "Delay")
+        MARKER_CH, PXI_LINE, :drivetime, "Drive Pulse Length")
 
     StarkShift(awgXY, awgRead, awgMarker, πPulse, readoutPulse, ringdown_delay, end_delay, IQ_XY_chs,
         IQ_readout_chs, markerCh, PXI_line, axisname, axislabel) = new(awgXY, awgRead,
@@ -357,6 +362,10 @@ mutable struct CPecho <: QubitCharacterization
             IQ_XY_chs, IQ_readout_chs) = new(awgXY, awgRead, awgMarker, πPulse, π_2Pulse, readoutPulse,
             1, 100e-9, decay_delay, end_delay, IQ_XY_chs, IQ_readout_chs, MARKER_CH, PXI_LINE)
 
+    CPecho(awgXY, awgRead, awgMarker, πPulse, π_2Pulse, readoutPulse, n_π, τ, decay_delay, end_delay, 
+            IQ_XY_chs, IQ_readout_chs) = new(awgXY, awgRead, awgMarker, πPulse, π_2Pulse, readoutPulse,
+            n_π, τ, decay_delay, end_delay, IQ_XY_chs, IQ_readout_chs, MARKER_CH, PXI_LINE)
+
     CPecho(awgXY, awgRead, awgMarker, πPulse, π_2Pulse, readoutPulse, n_π, τ, decay_delay,
        end_delay, IQ_XY_chs, IQ_readout_chs, markerCh, PXI_line) = new(awgXY, awgRead,
         awgMarker, πPulse, π_2Pulse, readoutPulse, n_π, τ, decay_delay, end_delay,
@@ -380,6 +389,9 @@ mutable struct CPecho_τ
     CPstim::CPecho
     axisname::Symbol
     axislabel::String
+
+    CPecho_τ(CPstim) = new(CPstim, :echo_delay, "Idle Time Between π/2 Pulses")
+    CPecho_τ(CPstim, axisname, axislabel) = new(CPstim, axisname, axislabel)
 end
 
 """
@@ -399,6 +411,9 @@ mutable struct CPecho_n
     CPstim::CPecho
     axisname::Symbol
     axislabel::String
+
+    CPecho_n(CPstim) = new(CPstim, :n_pi, "Number of π Pulses")
+    CPecho_n(CPstim, axisname, axislabel) = new(CPstim, axisname, axislabel)
 end
 
 """

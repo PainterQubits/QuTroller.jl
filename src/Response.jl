@@ -48,7 +48,11 @@ function measure(resp::IQTrigResponse)
     daq_start(dig, ch1, ch2)
     sleep(0.001)
     @KSerror_handler SD_Module_PXItriggerWrite(dig.ID, control_line, 0)
-    all_I_data = daq_read(dig, ch1, daq_points, 1) #1ms timeout
+    try
+        all_I_data = daq_read(dig, ch1, daq_points, 1) #1ms timeout
+    catch
+        println("data isn't coming in. Is the digitizer receiving triggers??")
+    end
     all_I_data = all_I_data * (dig[FullScale, ch1])/2^15
     all_Q_data = daq_read(dig, ch2, daq_points, 1) #1ms timeout
     all_Q_data = all_Q_data * (dig[FullScale, ch2])/2^15

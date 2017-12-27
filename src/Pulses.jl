@@ -91,11 +91,11 @@ function AnalogPulse(IF_freq::Real, amplitude::Real, duration::Real, ::Type{CosE
                     string(amplitude)*"_"*string(duration))
         env = Waveform(make_CosEnvelope(duration, sample_rate), name)
         #loop below front-pads pulses with zeros
-        if (rem(round(duration/1e-9), 10) != 0.0)
+        if (rem(floor(duration/1e-9 + 0.001), 10) != 0.0)
             ten_ns = Int(round(10e-9*sample_rate))
-            pad_zeros = ten_ns - Int(rem(round(duration*sample_rate), ten_ns))
+            pad_zeros = ten_ns - Int(rem(floor(duration*sample_rate + 0.001), ten_ns))
             env.waveformValues = append!(zeros(pad_zeros), env.waveformValues)
-            duration = size(env.waveformValues)/sample_rate
+            duration = size(env.waveformValues)[1]/sample_rate
             println("Your pulse was front-padded with zeros to achieve correct samples number")
         end
         pulse = AnalogPulse(IF_freq, amplitude, IF_phase, duration, env)
@@ -107,11 +107,11 @@ function AnalogPulse(IF_freq::Real, amplitude::Real, duration::Real, ::Type{Rect
                      string(amplitude)*"_"*string(duration))
         env = Waveform(make_RectEnvelope(duration, sample_rate), name)
         #loop below front-pads pulses with zeros
-        if (rem(round(duration/1e-9), 10) != 0.0)
+        if (rem(floor(duration/1e-9 + 0.001), 10) != 0.0)
             ten_ns = Int(round(10e-9*sample_rate))
-            pad_zeros = ten_ns - Int(rem(round(duration*sample_rate), ten_ns))
+            pad_zeros = ten_ns - Int(rem(floor(duration*sample_rate + 0.001), ten_ns))
             env.waveformValues = append!(zeros(pad_zeros), env.waveformValues)
-            duration = size(env.waveformValues)/sample_rate
+            duration = size(env.waveformValues)[1]/sample_rate
             println("Your pulse was front-padded with zeros to achieve correct samples number")
         end
         pulse = AnalogPulse(IF_freq, amplitude, IF_phase, duration, env)
@@ -216,11 +216,11 @@ function DCPulse(amplitude::Real, duration::Real, ::Type{RectEdge}, sample_rate:
              name = "DCPulse_"*string(amplitude)*"_"*string(duration))
     offset = make_RectEnvelope(duration, sample_rate)
     offset_wav = Waveform(offset, name)
-    if (rem(round(duration/1e-9), 10) != 0.0)
+    if (rem(floor(duration/1e-9 + 0.001), 10) != 0.0)
         ten_ns = Int(round(10e-9*sample_rate))
-        pad_zeros = ten_ns - Int(rem(round(duration*sample_rate), ten_ns))
+        pad_zeros = ten_ns - Int(rem(floor(duration*sample_rate + 0.001), ten_ns))
         append!(offset_wav.waveformValues, zeros(pad_zeros))
-        duration = size(offset_wav.waveformValues)/sample_rate
+        duration = size(offset_wav.waveformValues)[1]/sample_rate
         println("Your pulse was back-padded with zeros to achieve correct samples number")
     end
     pulse = DCPulse(amplitude, duration, offset_wav)
@@ -306,6 +306,7 @@ end
 function load_pulse(awg::InsAWGM320XA, pulse::DigitalPulse, name::AbstractString)
     if !(pulse.I_waveform in values(awg.waveforms))
         load_waveform(awg, pulse.I_waveform, find_wav_id(awg, "I_"*name))
+    end
     if !(pulse.Q_waveform in values(awg.waveforms))
         load_waveform(awg, pulse.Q_waveform, find_wav_id(awg, "Q_"*name))
     end
@@ -345,19 +346,19 @@ function DigitalPulse_general(IF_freq::Real, amplitude::Real, duration::Real,
                               env::Vector{Float64}, sample_rate::Real, IF_phase::Real,
                               name::AbstractString)
     d = duration
-    time_step = 1/sample_rate; t = linspace(time_step, d, round(d/time_step))
+    time_step = 1/sample_rate; t = linspace(time_step, d, floor(d/time_step + 0.001))
     IF_signal = exp.(im*(2π*IF_freq*t + IF_phase))
     full_pulse = IF_signal.*env
     I_pulse = real(full_pulse)
     Q_pulse = imag(full_pulse)
     I_wav = Waveform(I_pulse, "I_"*name)
     Q_wav = Waveform(Q_pulse, "Q_"*name)
-    if (rem(round(duration/1e-9), 10) != 0.0)
+    if (rem(floor(duration/1e-9 + 0.001), 10) != 0.0)
         ten_ns = Int(round(10e-9*sample_rate))
-        pad_zeros = ten_ns - Int(rem(round(duration*sample_rate), ten_ns))
+        pad_zeros = ten_ns - Int(rem(floor(duration*sample_rate + 0.001), ten_ns))
         append!(I_wav.waveformValues, zeros(pad_zeros))
         append!(Q_wav.waveformValues, zeros(pad_zeros))
-        duration = size(I_wav.waveformValues)/sample_rate
+        duration = size(I_wav.waveformValues)[1]/sample_rate
         println("Your pulse was back-padded with zeros to achieve correct samples number")
     end
     pulse = DigitalPulse(IF_freq, amplitude, IF_phase, duration, I_wav, Q_wav)
@@ -370,11 +371,11 @@ function DCPulse_general(amplitude::Real, duration::Real, rising_edge::Vector{Fl
     dc_part = ones(num_t_points - size(rising_edge)[1] - size(falling_edge)[1])
     pulse_values = vcat(rising_edge, dc_part, falling_edge)
     pulse_wav = Waveform(pulse_values, name)
-    if (rem(round(duration/1e-9), 10) != 0.0)
+    if (rem(floor(duration/1e-9 + 0.001), 10) != 0.0)
         ten_ns = Int(round(10e-9*sample_rate))
-        pad_zeros = ten_ns - Int(rem(round(duration*sample_rate), ten_ns))
+        pad_zeros = ten_ns - Int(rem(floor(duration*sample_rate + 0.001), ten_ns))
         append!(pulse_wav.waveformValues, zeros(pad_zeros))
-        duration = size(pulse_wav.waveformValues)/sample_rate
+        duration = size(pulse_wav.waveformValues)[1]/sample_rate
         println("Your pulse was back-padded with zeros to achieve correct samples number")
     end
     pulse = DCPulse(amplitude, duration, pulse_wav)
@@ -384,7 +385,7 @@ end
 function make_CosEnvelope(duration::Real, sample_rate::Real)
     d = duration
     time_step = 1/sample_rate
-    t = linspace(time_step, d, round(d/time_step))
+    t = linspace(time_step, d, floor(d/time_step + 0.001)) #floor and + 0.001 for consistent rounding and no floating point errors
     env = (1 + cos.(2π*(t - d/2)/d))/2
     return env
 end
@@ -392,7 +393,7 @@ end
 function make_RectEnvelope(duration::Real, sample_rate::Real)
     d = duration
     time_step = 1/sample_rate
-    t = linspace(time_step, d, round(d/time_step)); num_points = size(t)[1]
+    t = linspace(time_step, d, floor(d/time_step + 0.001)); num_points = size(t)[1] #floor and + 0.001 for consistent rounding and no floating point errors
     env = ones(num_points)
     return env
 end
@@ -400,7 +401,7 @@ end
 function make_Delay(duration::Real, sample_rate::Real)
     d = duration
     time_step = 1/sample_rate
-    num_points = round(duration/time_step)
+    num_points = floor(duration/time_step + 0.001) #floor and + 0.001 for consistent rounding and no floating point errors
     env = zeros(num_points)
     return env
 end
@@ -408,7 +409,7 @@ end
 function make_SineEdge(sample_rate::Real, edge_freq::Real)
     edge_length = 0.25*(1/edge_freq)
     edge_length_rising = floor(edge_length, 9)
-    edge_length_falling = ceil(edge_length, 9)
+    edge_length_falling = floor(edge_length, 9)
     time_step = 1/sample_rate
     rise_t = linspace(time_step, edge_length_rising, round(edge_length_rising/time_step))
     fall_t = linspace(time_step, edge_length_falling, round(edge_length_falling/time_step))
