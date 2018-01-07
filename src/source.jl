@@ -376,15 +376,15 @@ function source(stim::CPecho)
     nothing
 end
 
-function source(CPecho_n, n::Integer)
-    CPecho_n.CPstim.n_π = n
-    source(CPecho_n.CPstim)
+function source(c::CPecho_n, n::Integer)
+    c.CPstim.n_π = n
+    source(c.CPstim)
     nothing
 end
 
-function source(CPecho_τ, τ::Real)
-    CPecho_τ.CPstim.τ = τ
-    source(CPecho_τ.CPstim)
+function source(c::CPecho_τ, τ::Real)
+    c.CPstim.τ = τ
+    source(c.CPstim)
     nothing
 end
 
