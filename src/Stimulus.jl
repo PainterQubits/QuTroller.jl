@@ -2,11 +2,6 @@ export QubitCharacterization
 export T1
 export Rabi
 export Ramsey
-<<<<<<< HEAD
-
-global const DECAY_TIME = 20e-6 #temporary delay for testing purposes
-global const END_TIME = 20e-6 #temporary delay for testing purposes
-=======
 export StarkShift
 export CPecho
 export CPecho_n
@@ -16,7 +11,6 @@ export ReadoutReference
 
 global const DECAY_TIME = 60e-6 #temporary delay for testing purposes
 global const END_TIME = 60e-6 #temporary delay for testing purposes
->>>>>>> Revisions2
 global const MARKER_CH = 4
 
 
@@ -368,7 +362,7 @@ mutable struct CPecho <: QubitCharacterization
             IQ_XY_chs, IQ_readout_chs) = new(awgXY, awgRead, awgMarker, πPulse, π_2Pulse, readoutPulse,
             1, 100e-9, decay_delay, end_delay, IQ_XY_chs, IQ_readout_chs, MARKER_CH, PXI_LINE)
 
-    CPecho(awgXY, awgRead, awgMarker, πPulse, π_2Pulse, readoutPulse, n_π, τ, decay_delay, end_delay, 
+    CPecho(awgXY, awgRead, awgMarker, πPulse, π_2Pulse, readoutPulse, n_π, τ, decay_delay, end_delay,
             IQ_XY_chs, IQ_readout_chs) = new(awgXY, awgRead, awgMarker, πPulse, π_2Pulse, readoutPulse,
             n_π, τ, decay_delay, end_delay, IQ_XY_chs, IQ_readout_chs, MARKER_CH, PXI_LINE)
 
