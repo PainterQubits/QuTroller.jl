@@ -1,7 +1,6 @@
 export IQTrigResponse
 export Avg_IQResponse
 export Avg_IQResponse2
-export IQPXIResponse
 
 mutable struct IQTrigResponse <: Response
     #digitizer
@@ -13,30 +12,32 @@ mutable struct IQTrigResponse <: Response
     points_per_cycle::Int
     delay::Int
     trig_source::Any
-    #AWG output control
-    awgTrig::InsAWGM320XA
-    trig_ch::Int
+    control_line::Int
     #processing
     freq::Float64
+
+    IQTrigResponse(dig, I_ch, Q_ch, daq_cycles, points_per_cycle, delay, trig_source,
+                    freq) = new(dig, I_ch, Q_ch, daq_cycles, points_per_cycle, delay,
+                                trig_source, PXI_LINE, freq)
+
+    IQTrigResponse(dig, I_ch, Q_ch, daq_cycles, points_per_cycle, delay, trig_source,
+                    control_line, freq) = new(dig, I_ch, Q_ch, daq_cycles,
+                    points_per_cycle, delay, trig_source, control_line, freq)
 end
 
 function measure(resp::IQTrigResponse)
-    #getting trigger AWG ready
-    awgTrig = resp.awgTrig
-    trig_ch = resp.trig_ch
-    awgTrig[OutputMode, trig_ch] = :Square
-    awgTrig[FGFrequency, trig_ch] = 10e6
-    awgTrig[Amplitude, trig_ch] = 0
-
-    #getting digitizer ready
     dig = resp.dig
     ch1 = resp.I_ch
     ch2 = resp.Q_ch
+    control_line = resp.control_line
+    @KSerror_handler SD_Module_PXItriggerWrite(dig.ID, control_line, 1)
+    #getting digitizer ready
+    daq_flush(dig, ch1, ch2)
     daq_points = resp.points_per_cycle * resp.daq_cycles
     @KSerror_handler SD_AIN_triggerIOconfig(dig.ID, 1)
     for ch in [ch1, ch2]
         dig[DAQTrigMode, ch] = :External
-        dig[ExternalTrigBehavior] = :Rising
+        dig[ExternalTrigBehavior, ch] = :Rising
         dig[ExternalTrigSource, ch] = resp.trig_source
         dig[DAQPointsPerCycle, ch] = resp.points_per_cycle
         dig[DAQCycles, ch] = resp.daq_cycles
@@ -46,12 +47,16 @@ function measure(resp::IQTrigResponse)
     #acquiring data
     daq_start(dig, ch1, ch2)
     sleep(0.001)
-    awgTrig[Amplitude, trig_ch] = 1.5
-    all_I_data = daq_read(dig, ch1, daq_points, 1)
+    @KSerror_handler SD_Module_PXItriggerWrite(dig.ID, control_line, 0)
+    try
+        all_I_data = daq_read(dig, ch1, daq_points, 1) #1ms timeout
+    catch
+        println("data isn't coming in. Is the digitizer receiving triggers??")
+    end
     all_I_data = all_I_data * (dig[FullScale, ch1])/2^15
-    all_Q_data = daq_read(dig, ch2, daq_points, 1)
+    all_Q_data = daq_read(dig, ch2, daq_points, 1) #1ms timeout
     all_Q_data = all_Q_data * (dig[FullScale, ch2])/2^15
-    awgTrig[Amplitude, trig_ch] = 0
+    @KSerror_handler SD_Module_PXItriggerWrite(dig.ID, control_line, 1)
 
     #processing data
     num_samples = resp.points_per_cycle
@@ -71,20 +76,21 @@ function measure(resp::IQTrigResponse)
     return all_IQ::Vector{Complex{Float32}}
 end
 
+mutable struct piNopi_IQResponse <: Response
+    respIQ::Response
+end
+
+function measure(resp::piNopi_IQResponse)
+    all_IQ = measure(resp.respIQ)::Array{Complex{Float32},1}
+    return AxisArray([mean(all_IQ[1:2:end]), mean(all_IQ[2:2:end])], Axis{:pulse}([:pi, :nopi]))
+end
+
 mutable struct Avg_IQResponse <: Response
     respIQ::Response
 end
 
 function measure(resp::Avg_IQResponse)
     all_IQ = measure(resp.respIQ)::Array{Complex{Float32},1}
-    return AxisArray([mean(all_IQ[1:2:end]), mean(all_IQ[2:2:end])], Axis{:pulse}([:pi, :nopi]))
-end
-
-mutable struct Avg_IQResponse2 <: Response
-    respIQ::Response
-end
-
-function measure(resp::Avg_IQResponse2)
-    all_IQ = measure(resp.respIQ)::Array{Complex{Float32},1}
-    return AxisArray([mean(all_IQ[1:2:end])], Axis{:pulse}([:pi]))
+    return mean(all_IQ)
+    #return AxisArray([mean(all_IQ)], Axis{:pulse}([:pi]))
 end

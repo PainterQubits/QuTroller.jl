@@ -1,4 +1,6 @@
 function source(stim::T1, τ::Real)
+    τ<20e-9 && error("τ must be at least 20ns")
+    (rem(round(τ/1e-9), 10) != 0.0) && error("τ must be in mutiple of 10ns")
     #renaming for convinience
     awgXY = stim.awgXY
     awgRead = stim.awgRead
@@ -9,15 +11,16 @@ function source(stim::T1, τ::Real)
     #computing delays and loading delays
     decay_num_20ns = Int(div(stim.decay_delay + 1e-9,20e-9)) #added extra 1e-9 because of floating point issues
     end_num_20ns = Int(div(stim.end_delay + 1e-9,20e-9)) #added extra 1e-9 because of floating point issues
-    read_fudge = 8  #channels 1 and 3 on awg in slot 3 are somewhat unsynced, this is a fudge factor--> might depend on whatever awgs and whatever channels
-    read_T1_delay = Waveform(make_Delay(τ + πPulse.duration, awgRead[SampleRate]), "read_T1_delay")
-    marker_T1_delay = Waveform(make_Delay(τ + πPulse.duration, awgMarker[SampleRate]), "marker_T1_delay")
-    τ_delay = Waveform(make_Delay(τ, awgXY[SampleRate]), "τ_delay") #note: can't do τ equal zero, that's an edge case
-    load_waveform(awgXY, τ_delay, find_wav_id(awgXY, "τ_delay") )
-    load_waveform(awgRead, read_T1_delay, find_wav_id(awgRead, "read_T1_delay") )
-    load_waveform(awgMarker, marker_T1_delay, find_wav_id(awgMarker, "marker_T1_delay") )
+    read_fudge = 8  #there is a delay in output when outputting directly from the AWG, vs outputting from FG and amplitude modulating it
+    xy_fudge = 2 #there is a delay in output when outputting from the fast AWG compared the slow AWG
+    read_T1_delay = DelayPulse(τ + πPulse.duration, awgRead[SampleRate], name = "read_T1_delay")
+    marker_T1_delay = DelayPulse(τ + πPulse.duration, awgMarker[SampleRate], name = "marker_T1_delay")
+    τ_delay = DelayPulse(τ, awgXY[SampleRate], name = "τ_delay") #note: can't do τ equal zero, that's an edge case
+    load_pulse(awgXY, τ_delay, "τ_delay")
+    load_pulse(awgRead, read_T1_delay, "read_T1_delay")
+    load_pulse(awgMarker, marker_T1_delay, "marker_T1_delay")
     readoutPulse_delay_id = find_wav_id(awgXY, "readoutPulse_delay")
-    markerPulseID = find_wav_id(awgMarker, "Markers_Voltage=1")
+    markerPulseID = find_wav_id(awgMarker, "Markers_Voltage=1.5")
     delay_id_XY = find_wav_id(awgXY, "20ns_delay")
     delay_id_Read = find_wav_id(awgRead, "20ns_delay")
     delay_id_Marker = find_wav_id(awgMarker, "20ns_delay")
@@ -27,47 +30,47 @@ function source(stim::T1, τ::Real)
     awg_stop(awgXY, stim.IQ_XY_chs...)
     awg_stop(awgRead, stim.IQ_readout_chs...)
     awg_stop(awgMarker, stim.markerCh)
-    SD_Module_PXItriggerWrite(awgRead.ID, stim.PXI_line, 1)
+    @KSerror_handler SD_Module_PXItriggerWrite(awgMarker.ID, stim.PXI_line, 1) #turning line off in case it was on before
     queue_flush.(awgXY, stim.IQ_XY_chs)
     queue_flush.(awgRead, stim.IQ_readout_chs)
     queue_flush(awgMarker, stim.markerCh)
+    sleep(0.001)
 
     #awgXY queueing
-    queue_waveform.(awgXY, stim.IQ_XY_chs, πPulse.envelope, :External)
-    queue_waveform.(awgXY, stim.IQ_XY_chs, τ_delay, :Auto)
+    queue_waveform.(awgXY, stim.IQ_XY_chs, πPulse.envelope, :External, delay = xy_fudge)
+    queue_waveform.(awgXY, stim.IQ_XY_chs, τ_delay.waveform, :Auto)
     queue_waveform.(awgXY, stim.IQ_XY_chs, readoutPulse_delay_id, :Auto)
-    queue_waveform.(awgXY, stim.IQ_XY_chs, delay_id_XY,  :Auto, repetitions = decay_num_20ns)
-    queue_waveform.(awgXY, stim.IQ_XY_chs, readoutPulse_delay_id,  :Auto)
-    queue_waveform.(awgXY, stim.IQ_XY_chs, delay_id_XY,  :Auto, repetitions = end_num_20ns)
+    queue_waveform.(awgXY, stim.IQ_XY_chs, delay_id_XY,  :Auto, repetitions = decay_num_20ns - Int(xy_fudge/2))
+    # queue_waveform.(awgXY, stim.IQ_XY_chs, readoutPulse_delay_id,  :Auto)
+    # queue_waveform.(awgXY, stim.IQ_XY_chs, delay_id_XY,  :Auto, repetitions = end_num_20ns - Int(xy_fudge/2))
 
     #awgRead queueing
     read_I = stim.IQ_readout_chs[1]
     read_Q = stim.IQ_readout_chs[2]
-    queue_waveform.(awgRead, stim.IQ_readout_chs, read_T1_delay, :External, delay = read_fudge)
+    queue_waveform.(awgRead, stim.IQ_readout_chs, read_T1_delay.waveform, :External, delay = read_fudge)
     queue_waveform(awgRead, read_I, readoutPulse.I_waveform, :Auto)
     queue_waveform(awgRead, read_Q, readoutPulse.Q_waveform, :Auto)
-    queue_waveform.(awgRead, stim.IQ_readout_chs, delay_id_Read, :Auto, repetitions = decay_num_20ns)
-    queue_waveform(awgRead, read_I, readoutPulse.I_waveform, :Auto)
-    queue_waveform(awgRead, read_Q, readoutPulse.Q_waveform,  :Auto)
-    queue_waveform.(awgRead, stim.IQ_readout_chs, delay_id_Read,  :Auto, repetitions = end_num_20ns-Int(read_fudge/2))
+    queue_waveform.(awgRead, stim.IQ_readout_chs, delay_id_Read, :Auto, repetitions = decay_num_20ns - Int(read_fudge/2))
+    # queue_waveform(awgRead, read_I, readoutPulse.I_waveform, :Auto)
+    # queue_waveform(awgRead, read_Q, readoutPulse.Q_waveform,  :Auto)
+    # queue_waveform.(awgRead, stim.IQ_readout_chs, delay_id_Read,  :Auto, repetitions = end_num_20ns - Int(read_fudge/2))
 
     #awgMarker queueing
-    queue_waveform.(awgMarker, stim.markerCh, marker_T1_delay, :External)
+    queue_waveform(awgMarker, stim.markerCh, marker_T1_delay.waveform, :External)
     queue_waveform(awgMarker, stim.markerCh, markerPulseID, :Auto)
     queue_waveform(awgMarker, stim.markerCh, delay_id_Marker, :Auto, repetitions = decay_num_20ns)
-    queue_waveform(awgMarker, stim.markerCh, markerPulseID, :Auto)
-    queue_waveform.(awgMarker, stim.markerCh, delay_id_Marker, :Auto, repetitions = end_num_20ns)
+    # queue_waveform(awgMarker, stim.markerCh, markerPulseID, :Auto)
+    # queue_waveform(awgMarker, stim.markerCh, delay_id_Marker, :Auto, repetitions = end_num_20ns)
 
     #Start AWGs
     awg_start(awgRead, stim.IQ_readout_chs...)
     awg_start(awgXY, stim.IQ_XY_chs...)
-    awg_start(awgMarker, stim.markerCh) #this starts releasing markers, which triggers other AWGs
-    sleep(0.001)
-    SD_Module_PXItriggerWrite(awgRead.ID, stim.PXI_line, 0)
+    awg_start(awgMarker, stim.markerCh)
     nothing
 end
 
 function source(stim::Rabi, t::Real)
+    t<20e-9 && error("t must be at least 20ns")
     #renaming for convinience
     awgXY = stim.awgXY
     awgRead = stim.awgRead
@@ -79,19 +82,26 @@ function source(stim::Rabi, t::Real)
     sample_rate = awgXY[SampleRate]
     XYPulse.duration = t
     env = make_CosEnvelope(t, sample_rate)
+    if (rem(floor(t/1e-9 + 0.001), 10) != 0.0)
+        ten_ns = Int(round(10e-9*sample_rate))
+        pad_zeros = ten_ns - Int(rem(floor(t*sample_rate + 0.001), ten_ns))
+        env = append!(zeros(pad_zeros), env)
+        XYPulse.duration = size(env)[1]/sample_rate
+    end
     XYPulse.envelope = Waveform(env, "Rabi_XYPulse")
-    load_waveform(awgXY, XYPulse.envelope, find_wav_id(awgXY, "Rabi_XYPulse")) #new_id defined earlier in function
+    load_pulse(awgXY, XYPulse, "Rabi_XYPulse")
 
     #computing delays and loading delays
     decay_num_20ns = Int(div(stim.decay_delay + 1e-9,20e-9)) #added extra 1e-9 because of floating point issues
     end_num_20ns = Int(div(stim.end_delay + 1e-9,20e-9)) #added extra 1e-9 because of floating point issues
     read_fudge = 8  #channels 1 and 3 on awg in slot 3 are somewhat unsynced, this is a fudge factor--> might depend on whatever awgs and whatever channels
-    read_Rabi_delay = Waveform(make_Delay(t, awgRead[SampleRate]), "read_Rabi_delay")
-    marker_Rabi_delay = Waveform(make_Delay(t, awgMarker[SampleRate]), "marker_Rabi_delay")
-    load_waveform(awgRead, read_Rabi_delay, find_wav_id(awgRead, "read_Rabi_delay") )
-    load_waveform(awgMarker, marker_Rabi_delay, find_wav_id(awgMarker, "marker_Rabi_delay") )
+    xy_fudge = 2 #there is a delay in output when outputting from the fast AWG compared the slow AWG
+    read_Rabi_delay = DelayPulse(XYPulse.duration, awgRead[SampleRate], name = "read_Rabi_delay")
+    marker_Rabi_delay = DelayPulse(XYPulse.duration, awgMarker[SampleRate], name = "marker_Rabi_delay")
+    load_pulse(awgRead, read_Rabi_delay, "read_Rabi_delay")
+    load_pulse(awgMarker, marker_Rabi_delay, "marker_Rabi_delay")
     readoutPulse_delay_id = find_wav_id(awgXY, "readoutPulse_delay")
-    markerPulseID = find_wav_id(awgMarker, "Markers_Voltage=1")
+    markerPulseID = find_wav_id(awgMarker, "Markers_Voltage=1.5")
     delay_id_XY = find_wav_id(awgXY, "20ns_delay")
     delay_id_Read = find_wav_id(awgRead, "20ns_delay")
     delay_id_Marker = find_wav_id(awgMarker, "20ns_delay")
@@ -101,46 +111,47 @@ function source(stim::Rabi, t::Real)
     awg_stop(awgXY, stim.IQ_XY_chs...)
     awg_stop(awgRead, stim.IQ_readout_chs...)
     awg_stop(awgMarker, stim.markerCh)
-    SD_Module_PXItriggerWrite(awgRead.ID, stim.PXI_line, 1)
+    @KSerror_handler SD_Module_PXItriggerWrite(awgMarker.ID, stim.PXI_line, 1)
     queue_flush.(awgXY, stim.IQ_XY_chs)
     queue_flush.(awgRead, stim.IQ_readout_chs)
     queue_flush(awgMarker, stim.markerCh)
+    sleep(0.001)
 
     #awgXY queueing
-    queue_waveform.(awgXY, stim.IQ_XY_chs, XYPulse.envelope, :External)
+    queue_waveform.(awgXY, stim.IQ_XY_chs, XYPulse.envelope, :External, delay = xy_fudge)
     queue_waveform.(awgXY, stim.IQ_XY_chs, readoutPulse_delay_id, :Auto)
-    queue_waveform.(awgXY, stim.IQ_XY_chs, delay_id_XY, :Auto, repetitions = decay_num_20ns)
-    queue_waveform.(awgXY, stim.IQ_XY_chs, readoutPulse_delay_id, :Auto)
-    queue_waveform.(awgXY, stim.IQ_XY_chs, delay_id_XY, :Auto, repetitions = end_num_20ns)
+    queue_waveform.(awgXY, stim.IQ_XY_chs, delay_id_XY, :Auto, repetitions = decay_num_20ns - Int(xy_fudge/2))
+    # queue_waveform.(awgXY, stim.IQ_XY_chs, readoutPulse_delay_id, :Auto)
+    # queue_waveform.(awgXY, stim.IQ_XY_chs, delay_id_XY, :Auto, repetitions = end_num_20ns - Int(xy_fudge/2))
 
     #awgRead queueing
     read_I = stim.IQ_readout_chs[1]
     read_Q = stim.IQ_readout_chs[2]
-    queue_waveform.(awgRead, stim.IQ_readout_chs, read_Rabi_delay, :External, delay = read_fudge)
+    queue_waveform.(awgRead, stim.IQ_readout_chs, read_Rabi_delay.waveform, :External, delay = read_fudge)
     queue_waveform(awgRead, read_I, readoutPulse.I_waveform, :Auto)
     queue_waveform(awgRead, read_Q, readoutPulse.Q_waveform, :Auto)
-    queue_waveform.(awgRead, stim.IQ_readout_chs, delay_id_Read, :Auto, repetitions = decay_num_20ns)
-    queue_waveform(awgRead, read_I, readoutPulse.I_waveform, :Auto)
-    queue_waveform(awgRead, read_Q, readoutPulse.Q_waveform, :Auto)
-    queue_waveform.(awgRead, stim.IQ_readout_chs, delay_id_Read, :Auto, repetitions = end_num_20ns-Int(read_fudge/2))
+    queue_waveform.(awgRead, stim.IQ_readout_chs, delay_id_Read, :Auto, repetitions = decay_num_20ns - Int(read_fudge/2))
+    # queue_waveform(awgRead, read_I, readoutPulse.I_waveform, :Auto)
+    # queue_waveform(awgRead, read_Q, readoutPulse.Q_waveform, :Auto)
+    # queue_waveform.(awgRead, stim.IQ_readout_chs, delay_id_Read, :Auto, repetitions = end_num_20ns - Int(read_fudge/2))
 
     #awgMarker queueing
-    queue_waveform.(awgMarker, stim.markerCh, marker_Rabi_delay, :External)
+    queue_waveform(awgMarker, stim.markerCh, marker_Rabi_delay.waveform, :External)
     queue_waveform(awgMarker, stim.markerCh, markerPulseID,  :Auto)
     queue_waveform(awgMarker, stim.markerCh, delay_id_Marker, :Auto, repetitions = decay_num_20ns)
-    queue_waveform(awgMarker, stim.markerCh, markerPulseID, :Auto)
-    queue_waveform.(awgMarker, stim.markerCh, delay_id_Marker, :Auto, repetitions = end_num_20ns)
+    # queue_waveform.(awgMarker, stim.markerCh, markerPulseID, :Auto)
+    # queue_waveform.(awgMarker, stim.markerCh, delay_id_Marker, :Auto, repetitions = end_num_20ns)
 
     #Start AWGs
     awg_start(awgRead, stim.IQ_readout_chs...)
     awg_start(awgXY, stim.IQ_XY_chs...)
-    awg_start(awgMarker, stim.markerCh) #this starts releasing markers, which triggers other AWGs
-    sleep(0.001)
-    SD_Module_PXItriggerWrite(awgRead.ID, stim.PXI_line, 0)
+    awg_start(awgMarker, stim.markerCh)
     nothing
 end
 
 function source(stim::Ramsey, τ::Real)
+    τ<20e-9 && error("τ must be at least 20ns")
+    (rem(round(τ/1e-9), 10) != 0.0) && error("τ must be in mutiple of 10ns")
     awgXY = stim.awgXY
     awgRead = stim.awgRead
     awgMarker = stim.awgMarker
@@ -151,14 +162,15 @@ function source(stim::Ramsey, τ::Real)
     decay_num_20ns = Int(div(stim.decay_delay + 1e-9,20e-9)) #added extra 1e-9 because of floating point issues
     end_num_20ns = Int(div(stim.end_delay + 1e-9,20e-9)) #added extra 1e-9 because of floating point issues
     read_fudge = 8  #channels 1 and 3 on awg in slot 3 are somewhat unsynced, this is a fudge factor--> might depend on whatever awgs and whatever channels
-    read_Ramsey_delay = Waveform(make_Delay(τ + 2*π_2Pulse.duration, awgRead[SampleRate]), "read_Ramsey_delay")
-    marker_Ramsey_delay = Waveform(make_Delay(τ + 2*π_2Pulse.duration, awgMarker[SampleRate]), "marker_Ramsey_delay")
-    τ_delay = Waveform(make_Delay(τ, awgXY[SampleRate]), "τ_delay") #note: can't do τ equal zero, that's an edge case
-    load_waveform(awgXY, τ_delay, find_wav_id(awgXY, "τ_delay") )
-    load_waveform(awgRead, read_Ramsey_delay, find_wav_id(awgRead, "read_Ramsey_delay") )
-    load_waveform(awgMarker, marker_Ramsey_delay, find_wav_id(awgMarker, "marker_Ramsey_delay") )
+    xy_fudge = 2 #there is a delay in output when outputting from the fast AWG compared the slow AWG
+    read_Ramsey_delay = DelayPulse(τ + 2*π_2Pulse.duration, awgRead[SampleRate], name = "read_Ramsey_delay")
+    marker_Ramsey_delay = DelayPulse(τ + 2*π_2Pulse.duration, awgMarker[SampleRate], name = "marker_Ramsey_delay")
+    τ_delay = DelayPulse(τ, awgXY[SampleRate], name = "τ_delay") #note: can't do τ equal zero, that's an edge case
+    load_pulse(awgXY, τ_delay, "τ_delay")
+    load_pulse(awgRead, read_Ramsey_delay, "read_Ramsey_delay")
+    load_pulse(awgMarker, marker_Ramsey_delay, "marker_Ramsey_delay")
     readoutPulse_delay_id = find_wav_id(awgXY, "readoutPulse_delay")
-    markerPulseID = find_wav_id(awgMarker, "Markers_Voltage=1")
+    markerPulseID = find_wav_id(awgMarker, "Markers_Voltage=1.5")
     delay_id_XY = find_wav_id(awgXY, "20ns_delay")
     delay_id_Read = find_wav_id(awgRead, "20ns_delay")
     delay_id_Marker = find_wav_id(awgMarker, "20ns_delay")
@@ -168,43 +180,287 @@ function source(stim::Ramsey, τ::Real)
     awg_stop(awgXY, stim.IQ_XY_chs...)
     awg_stop(awgRead, stim.IQ_readout_chs...)
     awg_stop(awgMarker, stim.markerCh)
-    SD_Module_PXItriggerWrite(awgRead.ID, stim.PXI_line, 1)
+    @KSerror_handler SD_Module_PXItriggerWrite(awgMarker.ID, stim.PXI_line, 1)
     queue_flush.(awgXY, stim.IQ_XY_chs)
     queue_flush.(awgRead, stim.IQ_readout_chs)
     queue_flush(awgMarker, stim.markerCh)
+    sleep(0.001)
 
     #awgXY queueing
-    queue_waveform.(awgXY, stim.IQ_XY_chs, π_2Pulse.envelope, :External)
-    queue_waveform.(awgXY, stim.IQ_XY_chs, τ_delay, :Auto)
+    queue_waveform.(awgXY, stim.IQ_XY_chs, π_2Pulse.envelope, :External, delay = xy_fudge)
+    queue_waveform.(awgXY, stim.IQ_XY_chs, τ_delay.waveform, :Auto)
     queue_waveform.(awgXY, stim.IQ_XY_chs, π_2Pulse.envelope, :Auto)
     queue_waveform.(awgXY, stim.IQ_XY_chs, readoutPulse_delay_id, :Auto)
-    queue_waveform.(awgXY, stim.IQ_XY_chs, delay_id_XY, :Auto, repetitions = decay_num_20ns)
-    queue_waveform.(awgXY, stim.IQ_XY_chs, readoutPulse_delay_id, :Auto)
-    queue_waveform.(awgXY, stim.IQ_XY_chs, delay_id_XY, :Auto, repetitions = end_num_20ns)
+    queue_waveform.(awgXY, stim.IQ_XY_chs, delay_id_XY, :Auto, repetitions = decay_num_20ns - Int(xy_fudge/2))
+    # queue_waveform.(awgXY, stim.IQ_XY_chs, readoutPulse_delay_id, :Auto)
+    # queue_waveform.(awgXY, stim.IQ_XY_chs, delay_id_XY, :Auto, repetitions = end_num_20ns - Int(xy_fudge/2) )
 
     #awgRead queueing
     read_I = stim.IQ_readout_chs[1]
     read_Q = stim.IQ_readout_chs[2]
-    queue_waveform.(awgRead, stim.IQ_readout_chs, read_Ramsey_delay, :External, delay = read_fudge)
+    queue_waveform.(awgRead, stim.IQ_readout_chs, read_Ramsey_delay.waveform, :External, delay = read_fudge)
     queue_waveform(awgRead, read_I, readoutPulse.I_waveform, :Auto)
     queue_waveform(awgRead, read_Q, readoutPulse.Q_waveform, :Auto)
-    queue_waveform.(awgRead, stim.IQ_readout_chs, delay_id_Read, :Auto, repetitions = decay_num_20ns)
-    queue_waveform(awgRead, read_I, readoutPulse.I_waveform, :Auto)
-    queue_waveform(awgRead, read_Q, readoutPulse.Q_waveform, :Auto)
-    queue_waveform.(awgRead, stim.IQ_readout_chs, delay_id_Read, :Auto, repetitions = end_num_20ns-Int(read_fudge/2))
+    queue_waveform.(awgRead, stim.IQ_readout_chs, delay_id_Read, :Auto, repetitions = decay_num_20ns -Int(read_fudge/2))
+    # queue_waveform(awgRead, read_I, readoutPulse.I_waveform, :Auto)
+    # queue_waveform(awgRead, read_Q, readoutPulse.Q_waveform, :Auto)
+    # queue_waveform.(awgRead, stim.IQ_readout_chs, delay_id_Read, :Auto, repetitions = end_num_20ns-Int(read_fudge/2))
 
     #awgMarker queueing
-    queue_waveform.(awgMarker, stim.markerCh, marker_Ramsey_delay, :External)
+    queue_waveform(awgMarker, stim.markerCh, marker_Ramsey_delay.waveform, :External)
     queue_waveform(awgMarker, stim.markerCh, markerPulseID, :Auto)
     queue_waveform(awgMarker, stim.markerCh, delay_id_Marker, :Auto, repetitions = decay_num_20ns)
-    queue_waveform(awgMarker, stim.markerCh, markerPulseID, :Auto)
-    queue_waveform.(awgMarker, stim.markerCh, delay_id_Marker, :Auto, repetitions = end_num_20ns)
+    # queue_waveform(awgMarker, stim.markerCh, markerPulseID, :Auto)
+    # queue_waveform(awgMarker, stim.markerCh, delay_id_Marker, :Auto, repetitions = end_num_20ns)
 
     #Start AWGs
     awg_start(awgRead, stim.IQ_readout_chs...)
     awg_start(awgXY, stim.IQ_XY_chs...)
     awg_start(awgMarker, stim.markerCh)
+    nothing
+end
+
+function source(stim::StarkShift, t::Real)
+    t<20e-9 && error("t must be at least 20ns")
+    #renaming for convinience
+    awgXY = stim.awgXY
+    awgRead = stim.awgRead
+    awgMarker = stim.awgMarker
+    πPulse = stim.πPulse
+    readoutPulse = stim.readoutPulse
+
+    #make drive pulse and load it
+    drivePulse = DigitalPulse(readoutPulse.IF_freq, readoutPulse.amplitude, t, RectEnvelope,
+                              awgRead[SampleRate], readoutPulse.IF_phase, name = "Readout Drive Pulse")
+    load_pulse(awgXY, drivePulse, "Readout Drive Pulse")
+
+    #computing delays and loading delays
+    ringdown_num_20ns = Int(div(stim.ringdown_delay + 1e-9,20e-9)) #added extra 1e-9 because of floating point issues
+    end_num_20ns = Int(div(stim.end_delay + 1e-9,20e-9)) #added extra 1e-9 because of floating point issues
+    read_fudge = 8  #channels 1 and 3 on awg in slot 3 are somewhat unsynced, this is a fudge factor--> might depend on whatever awgs and whatever channels
+    xy_fudge = 2 #there is a delay in output when outputting from the fast AWG compared the slow AWG
+    xy_stark_delay = DelayPulse(drivePulse.duration, awgXY[SampleRate], name = "xy_stark_delay")
+    read_stark_delay = DelayPulse(πPulse.duration, awgRead[SampleRate], name = "read_stark_delay")
+    marker_stark_delay = DelayPulse(drivePulse.duration + πPulse.duration, awgMarker[SampleRate], name = "marker_stark_delay")
+    load_pulse(awgXY, xy_stark_delay, "xy_stark_delay")
+    load_pulse(awgRead, read_stark_delay, "read_stark_delay")
+    load_pulse(awgMarker, marker_stark_delay, "marker_stark_delay")
+    readoutPulse_delay_id = find_wav_id(awgXY, "readoutPulse_delay")
+    markerPulseID = find_wav_id(awgMarker, "Markers_Voltage=1.5")
+    delay_id_XY = find_wav_id(awgXY, "20ns_delay")
+    delay_id_Read = find_wav_id(awgRead, "20ns_delay")
+    delay_id_Marker = find_wav_id(awgMarker, "20ns_delay")
+
+    #prepping AWG for sourcing: stopping AWG in case it wasn't stopped before, flushing
+    #queue to reset it, setting the PXI_line to off
+    awg_stop(awgXY, stim.IQ_XY_chs...)
+    awg_stop(awgRead, stim.IQ_readout_chs...)
+    awg_stop(awgMarker, stim.markerCh)
+    @KSerror_handler SD_Module_PXItriggerWrite(awgMarker.ID, stim.PXI_line, 1)
+    queue_flush.(awgXY, stim.IQ_XY_chs)
+    queue_flush.(awgRead, stim.IQ_readout_chs)
+    queue_flush(awgMarker, stim.markerCh)
     sleep(0.001)
-    SD_Module_PXItriggerWrite(awgRead.ID, stim.PXI_line, 0)
+
+    #awgXY queueing
+    queue_waveform.(awgXY, stim.IQ_XY_chs, xy_stark_delay.waveform, :External, delay = xy_fudge)
+    queue_waveform.(awgXY, stim.IQ_XY_chs, πPulse.envelope, :Auto)
+    queue_waveform.(awgXY, stim.IQ_XY_chs, delay_id_XY, :Auto, repetitions = ringdown_num_20ns)
+    queue_waveform.(awgXY, stim.IQ_XY_chs, readoutPulse_delay_id, :Auto)
+    queue_waveform.(awgXY, stim.IQ_XY_chs, delay_id_XY, :Auto, repetitions = end_num_20ns - Int(xy_fudge/2))
+
+    #awgRead queueing
+    read_I = stim.IQ_readout_chs[1]
+    read_Q = stim.IQ_readout_chs[2]
+    queue_waveform(awgRead, read_I, drivePulse.I_waveform, :External, delay = read_fudge)
+    queue_waveform(awgRead, read_Q, drivePulse.Q_waveform, :External, delay = read_fudge)
+    queue_waveform.(awgRead, stim.IQ_readout_chs, read_stark_delay.waveform, :Auto)
+    queue_waveform.(awgRead, stim.IQ_readout_chs, delay_id_Read, :Auto, repetitions = ringdown_num_20ns)
+    queue_waveform(awgRead, read_I, readoutPulse.I_waveform, :Auto)
+    queue_waveform(awgRead, read_Q, readoutPulse.Q_waveform, :Auto)
+    queue_waveform.(awgRead, stim.IQ_readout_chs, delay_id_Read, :Auto, repetitions = end_num_20ns - Int(read_fudge/2))
+
+    #awgMarker queueing
+    queue_waveform(awgMarker, stim.markerCh, marker_stark_delay.waveform, :External)
+    queue_waveform(awgMarker, stim.markerCh, delay_id_Marker, :Auto, repetitions = ringdown_num_20ns)
+    queue_waveform(awgMarker, stim.markerCh, markerPulseID,  :Auto)
+    queue_waveform(awgMarker, stim.markerCh, delay_id_Marker, :Auto, repetitions = end_num_20ns)
+
+    #Start AWGs
+    awg_start(awgRead, stim.IQ_readout_chs...)
+    awg_start(awgXY, stim.IQ_XY_chs...)
+    awg_start(awgMarker, stim.markerCh)
+    nothing
+end
+
+function source(stim::CPecho)
+    #renaming for convinience
+    awgXY = stim.awgXY
+    awgRead = stim.awgRead
+    awgMarker = stim.awgMarker
+    πPulse = stim.πPulse
+    π_2Pulse = stim.π_2Pulse
+    readoutPulse = stim.readoutPulse
+    nπ = stim.n_π
+    τ = stim.τ
+
+    #making XY pulse train as one big waveform and loading it
+    π_2_delay = τ/(2*nπ)
+    π_delay = τ/(nπ)
+    π_2_delay_samples = Int(round(π_2_delay*awgXY[SampleRate]))
+    π_delay_samples = Int(round(π_delay*awgXY[SampleRate]))
+
+    CPecho_pulse_sequence =
+        vcat(π_2Pulse.envelope.waveformValues, zeros(π_2_delay_samples),
+             repeat(vcat(πPulse.envelope.waveformValues, zeros(π_delay_samples)), outer = nπ-1),
+             πPulse.envelope.waveformValues, zeros(π_2_delay_samples), π_2Pulse.envelope.waveformValues)
+    CP_waveform = Waveform(CPecho_pulse_sequence, "CPecho_pulse_sequence")
+    load_waveform(awgXY, CP_waveform, find_wav_id(awgXY, "CPecho_pulse_sequence"))
+    CP_duration = size(CPecho_pulse_sequence)[1]/awgXY[SampleRate]
+
+    #computing delays and loading delays
+    decay_num_20ns = Int(div(stim.decay_delay + 1e-9,20e-9)) #added extra 1e-9 because of floating point issues
+    end_num_20ns = Int(div(stim.end_delay + 1e-9,20e-9)) #added extra 1e-9 because of floating point issues
+    read_fudge = 8  #channels 1 and 3 on awg in slot 3 are somewhat unsynced, this is a fudge factor--> might depend on whatever awgs and whatever channels
+    xy_fudge = 2 #there is a delay in output when outputting from the fast AWG compared the slow AWG
+    read_CPecho_delay = DelayPulse(CP_duration, awgXY[SampleRate], name = "read_CPecho_delay")
+    marker_CPecho_delay = DelayPulse(CP_duration, awgMarker[SampleRate], name = "marker_CPecho_delay")
+    load_pulse(awgRead, read_CPecho_delay, "read_CPecho_delay")
+    load_pulse(awgMarker, marker_CPecho_delay, "marker_CPecho_delay")
+    readoutPulse_delay_id = find_wav_id(awgXY, "readoutPulse_delay")
+    markerPulseID = find_wav_id(awgMarker, "Markers_Voltage=1.5")
+    delay_id_XY = find_wav_id(awgXY, "20ns_delay")
+    delay_id_Read = find_wav_id(awgRead, "20ns_delay")
+    delay_id_Marker = find_wav_id(awgMarker, "20ns_delay")
+
+    #prepping AWG for sourcing: stopping AWG in case it wasn't stopped before, flushing
+    #queue to reset it, setting the PXI_line to off
+    awg_stop(awgXY, stim.IQ_XY_chs...)
+    awg_stop(awgRead, stim.IQ_readout_chs...)
+    awg_stop(awgMarker, stim.markerCh)
+    @KSerror_handler SD_Module_PXItriggerWrite(awgMarker.ID, stim.PXI_line, 1)
+    queue_flush.(awgXY, stim.IQ_XY_chs)
+    queue_flush.(awgRead, stim.IQ_readout_chs)
+    queue_flush(awgMarker, stim.markerCh)
+    sleep(0.001)
+
+    #awgXY queueing
+    queue_waveform.(awgXY, stim.IQ_XY_chs, CP_waveform, :External, delay = xy_fudge)
+    queue_waveform.(awgXY, stim.IQ_XY_chs, readoutPulse_delay_id, :Auto)
+    queue_waveform.(awgXY, stim.IQ_XY_chs, delay_id_XY, :Auto, repetitions = decay_num_20ns - Int(xy_fudge/2))
+    # queue_waveform.(awgXY, stim.IQ_XY_chs, readoutPulse_delay_id, :Auto)
+    # queue_waveform.(awgXY, stim.IQ_XY_chs, delay_id_XY, :Auto, repetitions = end_num_20ns - Int(xy_fudge/2) )
+
+    #awgRead queueing
+    read_I = stim.IQ_readout_chs[1]
+    read_Q = stim.IQ_readout_chs[2]
+    queue_waveform.(awgRead, stim.IQ_readout_chs, read_CPecho_delay.waveform, :External, delay = read_fudge)
+    queue_waveform(awgRead, read_I, readoutPulse.I_waveform, :Auto)
+    queue_waveform(awgRead, read_Q, readoutPulse.Q_waveform, :Auto)
+    queue_waveform.(awgRead, stim.IQ_readout_chs, delay_id_Read, :Auto, repetitions = decay_num_20ns -Int(read_fudge/2))
+    # queue_waveform(awgRead, read_I, readoutPulse.I_waveform, :Auto)
+    # queue_waveform(awgRead, read_Q, readoutPulse.Q_waveform, :Auto)
+    # queue_waveform.(awgRead, stim.IQ_readout_chs, delay_id_Read, :Auto, repetitions = end_num_20ns-Int(read_fudge/2))
+
+    #awgMarker queueing
+    queue_waveform(awgMarker, stim.markerCh, marker_CPecho_delay.waveform, :External)
+    queue_waveform(awgMarker, stim.markerCh, markerPulseID, :Auto)
+    queue_waveform(awgMarker, stim.markerCh, delay_id_Marker, :Auto, repetitions = decay_num_20ns)
+    # queue_waveform(awgMarker, stim.markerCh, markerPulseID, :Auto)
+    # queue_waveform(awgMarker, stim.markerCh, delay_id_Marker, :Auto, repetitions = end_num_20ns)
+
+    #Start AWGs
+    awg_start(awgRead, stim.IQ_readout_chs...)
+    awg_start(awgXY, stim.IQ_XY_chs...)
+    awg_start(awgMarker, stim.markerCh)
+    nothing
+end
+
+function source(c::CPecho_n, n::Integer)
+    c.CPstim.n_π = n
+    source(c.CPstim)
+    nothing
+end
+
+function source(c::CPecho_τ, τ::Real)
+    c.CPstim.τ = τ
+    source(c.CPstim)
+    nothing
+end
+
+function source(stim::ReadoutReference)
+    awgRead = stim.awgRead
+    awgMarker = stim.awgMarker
+    readoutPulse = stim.readoutPulse
+
+    #computing delays and loading delays
+    decay_num_20ns = Int(div(stim.delay + 1e-9,20e-9)) #added extra 1e-9 because of floating point issues
+    read_fudge = 8  #there is a delay in output when outputting directly from the AWG, vs outputting from FG and amplitude modulating it
+    markerPulseID = find_wav_id(awgMarker, "Markers_Voltage=1.5")
+    delay_id_Read = find_wav_id(awgRead, "20ns_delay")
+    delay_id_Marker = find_wav_id(awgMarker, "20ns_delay")
+
+    awg_stop(awgRead, stim.IQ_readout_chs...)
+    awg_stop(awgMarker, stim.markerCh)
+    queue_flush.(awgRead, stim.IQ_readout_chs)
+    queue_flush(awgMarker, stim.markerCh)
+    sleep(0.001)
+
+    #awgRead queueing
+    read_I = stim.IQ_readout_chs[1]
+    read_Q = stim.IQ_readout_chs[2]
+    queue_waveform(awgRead, read_I, readoutPulse.I_waveform, :External, delay = read_fudge)
+    queue_waveform(awgRead, read_Q, readoutPulse.Q_waveform, :External, delay = read_fudge)
+    queue_waveform.(awgRead, stim.IQ_readout_chs, delay_id_Read, :Auto, repetitions = decay_num_20ns - Int(read_fudge/2))
+
+    #awgMarker queueing
+    queue_waveform(awgMarker, stim.markerCh, markerPulseID, :External)
+    queue_waveform(awgMarker, stim.markerCh, delay_id_Marker, :Auto, repetitions = decay_num_20ns)
+
+    #Start AWGs
+    awg_start(awgRead, stim.IQ_readout_chs...)
+    awg_start(awgMarker, stim.markerCh)
+    nothing
+end
+
+function source(stim::PiNoPiTesting)
+    awgRead = stim.awgRead
+    awgMarker = stim.awgMarker
+    readoutPulse = stim.readoutPulse
+
+    #computing delays and loading delays
+    decay_num_20ns = Int(div(stim.delay + 1e-9,20e-9)) #added extra 1e-9 because of floating point issues
+    read_fudge = 8  #there is a delay in output when outputting directly from the AWG, vs outputting from FG and amplitude modulating it
+    markerPulseID = find_wav_id(awgMarker, "Markers_Voltage=1.5")
+    delay_id_Read = find_wav_id(awgRead, "20ns_delay")
+    delay_id_Marker = find_wav_id(awgMarker, "20ns_delay")
+
+    read_delay = DelayPulse(readoutPulse.duration, awgRead[SampleRate], name = "read_delay")
+    load_pulse(awgRead, read_delay, "read_delay")
+
+    awg_stop(awgRead, stim.IQ_readout_chs...)
+    awg_stop(awgMarker, stim.markerCh)
+    queue_flush.(awgRead, stim.IQ_readout_chs)
+    queue_flush(awgMarker, stim.markerCh)
+    sleep(0.001)
+
+    #awgRead queueing
+    read_I = stim.IQ_readout_chs[1]
+    read_Q = stim.IQ_readout_chs[2]
+    queue_waveform(awgRead, read_I, readoutPulse.I_waveform, :External, delay = read_fudge)
+    queue_waveform(awgRead, read_Q, readoutPulse.Q_waveform, :External, delay = read_fudge)
+    queue_waveform.(awgRead, stim.IQ_readout_chs, delay_id_Read, :Auto, repetitions = decay_num_20ns)
+    queue_waveform.(awgRead, stim.IQ_readout_chs, read_delay.waveform, :Auto)
+    queue_waveform.(awgRead, stim.IQ_readout_chs, delay_id_Read, :Auto, repetitions = decay_num_20ns - Int(read_fudge/2))
+
+    #awgMarker queueing
+    queue_waveform(awgMarker, stim.markerCh, markerPulseID, :External)
+    queue_waveform(awgMarker, stim.markerCh, delay_id_Marker, :Auto, repetitions = decay_num_20ns)
+    queue_waveform(awgMarker, stim.markerCh, markerPulseID, :Auto)
+    queue_waveform(awgMarker, stim.markerCh, delay_id_Marker, :Auto, repetitions = decay_num_20ns)
+
+    #Start AWGs
+    awg_start(awgRead, stim.IQ_readout_chs...)
+    awg_start(awgMarker, stim.markerCh)
     nothing
 end
