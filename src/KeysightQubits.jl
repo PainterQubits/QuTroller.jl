@@ -3,6 +3,8 @@ module KeysightQubits
 
 import ICCommon: source, Stimulus, measure, Response
 
+export DCSource
+
 using InstrumentControl
 using InstrumentControl: AWGM320XA, DigitizerM3102A
 using KeysightInstruments
@@ -11,43 +13,57 @@ using AxisArrays
 Waveform = AWGM320XA.Waveform
 nums_to_mask = AWGM320XA.nums_to_mask
 
-global const PXI_LINE = 0
-
-#helper function
-"""
-        make_wav_id(awg::InsAWGM320XA)
-
-Finds the biggest waveform ID among the waveforms loaded in the AWG corresponding
-to the `awg` object, and returns that ID plus 1 (increments the biggest ID by 1).
-"""
-function make_wav_id(awg::InsAWGM320XA)
-    if size(collect(keys(awg.waveforms)))[1] == 0
-        new_id = 1
-    else
-        new_id = sort(collect(keys(awg.waveforms)))[end] + 1
-    end
-end
-
-"""
-        find_wav_id(awg::InsAWGM320XA, name::AbstractString)
-Tries to find the waveform ID associated with a waveform (loaded in the AWG corresponding
-to the `awg` object) that has it's name = `name`. If it does not find such a waveform,
-it just returns the output of make_wav_id (for convenience).
-"""
-function find_wav_id(awg::InsAWGM320XA, name::AbstractString)
-    id = make_wav_id(awg) #initializing id variable/ giving it value if name can't be found
-    for key in keys(awg.waveforms)
-        if awg.waveforms[key].name == name
-            id = key
-            break
-        end
-    end
-    return id
-end
-
 include("Pulses.jl")
-include("Stimulus.jl")
-include("Response.jl")
+include("helper.jl")
+include("Properties.jl")
+
+abstract type DCSource
+
+mutable struct keysightDC <: DCSource
+    awg::InsAWGM30XA
+    ch::Int
+end
+
+mutable struct Qubit
+    awg::Instrument
+    Ich::Int
+    Qch::Int
+    dc::DCSource
+
+    Qubit(Qcon::QubitController, awg, Ich, Qch, dc, name) = begin
+        q = new(awg, Ich, Qch, dc)
+        Qcon.qubits[name] = q
+        XY_delay_20ns = DelayPulse(20e-9, q.awg[SampleRate], name = "20ns_delay")
+        load_pulse(q.awg, XY_delay_20ns, "20ns_delay")
+        return q
+    end
+end
+
+#using struct instead of mutable struct can help runtime performance (due to simpler structure on memory)...
+#and can help pre-compiling time (since limiting the user means more straight forward "machine level" code)
+struct QubitController
+    qubits::Dict{String, Qubit}
+    configuration::Dict{Any, Any}
+
+    QubitController() = begin
+        Qcon = new()
+        Qcon.qubits = Dict{String, Qubit}()
+        Qcon.configuration = Dict{Any, Any}()
+        Qcon.configuration[ReadoutIF] = 100e6
+        Qcon.configuration[ReadoutPulse] = DigitalPulse(100e6, 0)
+        return Qcon
+    end
+end
+
+include("Inspect.jl")
 include("Configure.jl")
+include("Response.jl")
+include("Stimulus.jl")
+
+const global Qcon = Ref{QubitController}()
+
+function __init__()
+    Qcon[] = QubitController()
+end
 
 end #end module
