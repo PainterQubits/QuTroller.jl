@@ -4,6 +4,7 @@ module KeysightQubits
 import ICCommon: source, Stimulus, measure, Response
 
 export DCSource
+export Qubit
 
 using InstrumentControl
 using InstrumentControl: AWGM320XA, DigitizerM3102A
@@ -17,10 +18,10 @@ include("Pulses.jl")
 include("helper.jl")
 include("Properties.jl")
 
-abstract type DCSource
+abstract type DCSource end
 
 mutable struct keysightDC <: DCSource
-    awg::InsAWGM30XA
+    awg::InsAWGM320XA
     ch::Int
 end
 
@@ -29,14 +30,6 @@ mutable struct Qubit
     Ich::Int
     Qch::Int
     dc::DCSource
-
-    Qubit(Qcon::QubitController, awg, Ich, Qch, dc, name) = begin
-        q = new(awg, Ich, Qch, dc)
-        Qcon.qubits[name] = q
-        XY_delay_20ns = DelayPulse(20e-9, q.awg[SampleRate], name = "20ns_delay")
-        load_pulse(q.awg, XY_delay_20ns, "20ns_delay")
-        return q
-    end
 end
 
 #using struct instead of mutable struct can help runtime performance (due to simpler structure on memory)...
@@ -46,13 +39,21 @@ struct QubitController
     configuration::Dict{Any, Any}
 
     QubitController() = begin
-        Qcon = new()
-        Qcon.qubits = Dict{String, Qubit}()
-        Qcon.configuration = Dict{Any, Any}()
+        qubits = Dict{String, Qubit}()
+        configuration = Dict{Any, Any}()
+        Qcon = new(qubits, configuration)
         Qcon.configuration[ReadoutIF] = 100e6
         Qcon.configuration[ReadoutPulse] = DigitalPulse(100e6, 0)
         return Qcon
     end
+end
+
+function Qubit(Qcon::QubitController, awg, Ich, Qch, dc, name::AbstractString)
+    q = Qubit(awg, Ich, Qch, dc)
+    Qcon.qubits[name] = q
+    XY_delay_20ns = DelayPulse(20e-9, q.awg[SampleRate], name = "20ns_delay")
+    load_pulse(q.awg, XY_delay_20ns, "20ns_delay")
+    nothing
 end
 
 include("Inspect.jl")

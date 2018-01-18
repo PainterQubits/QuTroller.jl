@@ -1,6 +1,6 @@
 import Base: setindex!
 
-function setindex!(Qcon::QubitController, marker::Tuple{InsAWGM30XA, Int}, ::Type{Marker})
+function setindex!(Qcon::QubitController, marker::Tuple{InsAWGM320XA, Int}, ::Type{Marker})
     marker_obj = Marker(marker...)
     marker_delay_20ns = DelayPulse(20e-9, marker_obj.awg[SampleRate], name = "20ns_delay")
     load_pulse(marker_obj.awg, marker_delay_20ns, "20ns_delay")
@@ -15,11 +15,11 @@ function setindex!(Qcon::QubitController, digitizer::Tuple{InsDigitizerM3102A, I
     nothing
 end
 
-function setindex!(Qcon::QubitController, readout::Tuple{InsAWGM30XA, Int, Int},
+function setindex!(Qcon::QubitController, readout::Tuple{InsAWGM320XA, Int, Int},
                    ::Type{RO})
-    readout_obj = RO(ro...)
+    readout_obj = RO(readout...)
     read_delay_20ns = DelayPulse(20e-9, readout_obj.awg[SampleRate], name = "20ns_delay")
-    load_pulse(awgRead, read_delay_20ns, "20ns_delay")
+    load_pulse(readout_obj.awg, read_delay_20ns, "20ns_delay")
     Qcon.configuration[RO] = readout_obj
     nothing
 end
@@ -92,5 +92,10 @@ end
 
 function setindex!(Qcon::QubitController, amp::Real, q::AbstractString, ::Type{xyAmplitude})
     Qcon[q].awg[AmpModGain, Qcon[q].Ich, Qcon[q].Qch] = amp
+    nothing
+end
+
+function setindex!(Qcon::QubitController, roPulse::DigitalPulse, ::Type{ReadoutPulse})
+    Qcon.configuration[ReadoutPulse] = roPulse
     nothing
 end

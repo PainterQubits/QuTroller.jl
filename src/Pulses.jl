@@ -195,7 +195,7 @@ function DCPulse(duration::Real, ::Type{SineEdge}, sample_rate::Real;
     return pulse
 end
 
-function DCPulse(, duration::Real, ::Type{RectEdge}, sample_rate::Real;
+function DCPulse(duration::Real, ::Type{RectEdge}, sample_rate::Real;
              name = "DCPulse_"*string(duration))
     offset = make_RectEnvelope(duration, sample_rate)
     offset_wav = Waveform(offset, name)

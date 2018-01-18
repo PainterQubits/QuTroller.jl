@@ -16,7 +16,7 @@ export xyIF
 export xyAmplitude
 
 mutable struct Marker
-    awg::InsAWGM30XA
+    awg::InsAWGM320XA
     ch::Integer
 end
 
@@ -32,18 +32,18 @@ mutable struct RO
     Qch::Int
 end
 
-abstract type ReadoutLength
-abstract type ReadoutIF
-abstract type ReadoutPower
-abstract type ReadoutAmplitude
-abstract type DecayDelay
-abstract type EndDelay
+abstract type ReadoutLength end
+abstract type ReadoutIF end
+abstract type ReadoutPower end
+abstract type ReadoutAmplitude end
+abstract type DecayDelay end
+abstract type EndDelay end
 
-abstract type Averages
-abstract type DigDelay
-abstract type PXI
+abstract type Averages end
+abstract type DigDelay end
+abstract type PXI end
 
-abstract type xyIF
-abstract type xyAmplitude
+abstract type xyIF end
+abstract type xyAmplitude end
 
-abstract type ReadoutPulse
+abstract type ReadoutPulse end
