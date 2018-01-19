@@ -1,7 +1,5 @@
 export configure_awgs
 
-get_XYPulse(stim::QubitCharacterization) = getfield(stim, 2)
-
 function RO_Marker_config(stim::Stimulus)
     Qcon = qubitController[]
     (rem(round(Qcon[ReadoutPulse].duration/1e-9), 10) != 0.0) &&
@@ -71,11 +69,14 @@ function single_qubitANDpulse_config(stim::QubitCharacterization)
     awgXY[TrigSync, IQ_XY_chs...] = :CLK10
     awgXY[AmpModMode, IQ_XY_chs...] = :AmplitudeMod
     awgXY[AngModMode, IQ_XY_chs...] = :Off
-    XYPulse = get_XYPulse(stim)
+    if typeof(get_XYPulse(stim)) == AnalogPulse
+        IF_phase = get_XYPulse(stim).IF_phase
+    else
+        IF_phase = 0
     @KSerror_handler SD_AOU_channelPhaseResetMultiple(awgXY.ID,  nums_to_mask(IQ_XY_chs...))
     sleep(0.001)
-    awgXY[FGPhase, IQ_XY_chs[1]] = XYPulse.IF_phase
-    awgXY[FGPhase, IQ_XY_chs[2]] = XYPulse.IF_phase - 90 #cos(phi -pi/2) = sin(phi)
+    awgXY[FGPhase, IQ_XY_chs[1]] = IF_phase
+    awgXY[FGPhase, IQ_XY_chs[2]] = IF_phase - 90 #cos(phi -pi/2) = sin(phi)
     nothing
 end
 
@@ -115,3 +116,6 @@ function configure_awgs(stim::CPecho_τ)
 end
 
 configure_awgs(stim::ReadoutReference) = RO_Marker_config(stim)
+
+
+get_XYPulse(stim::QubitCharacterization) = getfield(stim, 2)

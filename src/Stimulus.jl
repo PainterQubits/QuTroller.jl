@@ -49,12 +49,11 @@ end
 ```
 mutable struct Rabi <: QubitCharacterization
     q::Qubit
-    XYPulse::AnalogPulse
     axisname::Symbol
     axislabel::String
 
-    Rabi(q, XYPulse) = new(q, XYPulse, :xyduration, "XY Pulse Duration")
-    Rabi(q, XYPulse, axisname, axislabel) = new(q, XYPulse, axisname, axislabel)
+    Rabi(q) = new(q, :xyduration, "XY Pulse Duration")
+    Rabi(q, axisname, axislabel) = new(q, axisname, axislabel)
 end
 ```
 
@@ -67,12 +66,11 @@ object) are automatically converted to be multiples of 20ns (for efficient imple
 
 mutable struct Rabi <: QubitCharacterization
     q::Qubit
-    XYPulse::AnalogPulse
     axisname::Symbol
     axislabel::String
 
-    Rabi(q, XYPulse) = new(q, XYPulse, :xyduration, "XY Pulse Duration")
-    Rabi(q, XYPulse, axisname, axislabel) = new(q, XYPulse, axisname, axislabel)
+    Rabi(q) = new(q, :xyduration, "XY Pulse Duration")
+    Rabi(q, axisname, axislabel) = new(q, axisname, axislabel)
 end
 
 """

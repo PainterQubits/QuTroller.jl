@@ -54,8 +54,7 @@ a channel's arbitrary waveform generator to amplitude modulate the output of a
 channel's Function Generator. It holds the envelope waveform which is the modulating signal,
 it's duration, as well as well as the phase of the periodic signal.
 
-There are three inner constructors to make an `AnalogPulse` object:
-        AnalogPulse(IF_phase)
+There are two inner constructors to make an `AnalogPulse` object:
         AnalogPulse(IF_phase, duration)
         AnalogPulse(IF_phase, duration, env)
 
@@ -72,7 +71,6 @@ mutable struct AnalogPulse <: Pulse
     duration::Float64
     envelope::Waveform
 
-    AnalogPulse(IF_phase) = new(IF_phase)
     AnalogPulse(IF_phase, duration) = new(IF_phase, duration)
     AnalogPulse(IF_phase, duration, env) = new(IF_phase, duration, env)
 end

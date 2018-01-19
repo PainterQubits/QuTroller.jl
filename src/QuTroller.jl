@@ -29,7 +29,7 @@ mutable struct Qubit
     awg::Instrument
     Ich::Int
     Qch::Int
-    dc::DCSource
+    #dc::DCSource
 end
 
 #using struct instead of mutable struct can help runtime performance (due to simpler structure on memory)...
