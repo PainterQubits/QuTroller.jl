@@ -16,6 +16,10 @@ function getindex(Qcon::QubitController, ::Type{RO})
     return Qcon.configuration[RO]
 end
 
+function getindex(Qcon::QubitController, ::Type{ReadoutPulse})
+    return Qcon.configuration[ReadoutPulse]
+end
+
 function getindex(Qcon::QubitController, ::Type{ReadoutLength})
     return Qcon.configuration[ReadoutLength]
 end

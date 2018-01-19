@@ -3,7 +3,7 @@ export configure_awgs
 get_XYPulse(stim::QubitCharacterization) = getfield(stim, 2)
 
 function RO_Marker_config(stim::Stimulus)
-    Qcon = Qcon[]
+    Qcon = qubitController[]
     (rem(round(Qcon[ReadoutPulse].duration/1e-9), 10) != 0.0) &&
                         error("Readout pulse duration(padded or otherwise) must be in mutiple of 10ns")
     awgRead = Qcon[RO].awg
@@ -35,6 +35,7 @@ function RO_Marker_config(stim::Stimulus)
     awgMarker[TrigSync, markerCh] = :CLK10
     awgMarker[AmpModMode, markerCh] = :Off
     awgMarker[AngModMode, markerCh] = :Off
+    nothing
 end
 
 """
@@ -42,15 +43,19 @@ end
         configure_awgs(stim::Rabi)
         configure_awgs(stim::Ramsey)
         configure_awgs(stim::StarkShift)
+        configure_awgs(stim::CPecho)
+        configure_awgs(stim::CPecho_n)
+        configure_awgs(stim::CPecho_τ)
         configure_awgs(stim::ReadoutReference)
 
-Function to configure AWG channels and load appropriate waveforms prior to
-sourcing of Stimulus `QubitCharacterization` or `ReadoutReference` objects.
+Function to configure AWG channels to proper settings prior to sourcing of
+Stimulus `QubitCharacterization` or `ReadoutReference` objects.
 """
 function configure_awgs end
 
 function single_qubitANDpulse_config(stim::QubitCharacterization)
     RO_Marker_config(stim)
+    Qcon = qubitController[]
     awgXY = stim.q.awg
     IQ_XY_chs = (stim.q.Ich, stim.q.Qch)
     awg_stop(awgXY, IQ_XY_chs...)
@@ -71,9 +76,6 @@ function single_qubitANDpulse_config(stim::QubitCharacterization)
     sleep(0.001)
     awgXY[FGPhase, IQ_XY_chs[1]] = XYPulse.IF_phase
     awgXY[FGPhase, IQ_XY_chs[2]] = XYPulse.IF_phase - 90 #cos(phi -pi/2) = sin(phi)
-
-    readoutPulse_delay = DelayPulse(Qcon[ReadoutPulse].duration, awgXY[SampleRate], name = "readoutPulse_delay")
-    load_pulse(awgXY, readoutPulse_delay, "readoutPulse_delay")
     nothing
 end
 

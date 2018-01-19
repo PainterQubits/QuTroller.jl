@@ -61,10 +61,10 @@ include("Configure.jl")
 include("Response.jl")
 include("Stimulus.jl")
 
-const global Qcon = Ref{QubitController}()
+const global qubitController = Ref{QubitController}()
 
 function __init__()
-    Qcon[] = QubitController()
+    qubitController[] = QubitController()
 end
 
 end #end module

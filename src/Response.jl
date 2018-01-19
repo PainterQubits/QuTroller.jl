@@ -9,7 +9,7 @@ end
 
 function measure(resp::RO_IQ_Response)
     #renaming for convenience
-    Qcon = Qcon[]
+    Qcon = qubitController[]
     dig = Qcon[Digitizer].dig
     ch1 = Qcon[Digitizer].Ich
     ch2 = Qcon[Digitizer].Qch

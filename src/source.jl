@@ -1,11 +1,12 @@
 function source(stim::T1, τ::Real)
     τ<20e-9 && error("τ must be at least 20ns")
     (rem(round(τ/1e-9), 10) != 0.0) && error("τ must be in mutiple of 10ns")
+    configure_awgs(stim)
     #renaming for convinience
-    Qcon = Qcon[]
+    Qcon = qubitController[]
     awgXY = stim.q.awg
     awgRead = Qcon[RO].awg
-    awgMarker = Qcon[RO].awg
+    awgMarker = Qcon[Marker].awg
     IQ_XY_chs = (stim.q.Ich, stim.q.Qch)
     IQ_readout_chs = (Qcon[RO].Ich, Qcon[RO].Qch)
     markerCh = Qcon[Marker].ch
@@ -20,7 +21,9 @@ function source(stim::T1, τ::Real)
     read_T1_delay = DelayPulse(τ + πPulse.duration, awgRead[SampleRate], name = "read_T1_delay")
     marker_T1_delay = DelayPulse(τ + πPulse.duration, awgMarker[SampleRate], name = "marker_T1_delay")
     τ_delay = DelayPulse(τ, awgXY[SampleRate], name = "τ_delay") #note: can't do τ equal zero, that's an edge case
+    readoutPulse_delay = DelayPulse(Qcon[ReadoutPulse].duration, awgXY[SampleRate], name = "readoutPulse_delay")
     load_pulse(awgXY, τ_delay, "τ_delay")
+    load_pulse(awgXY, readoutPulse_delay, "readoutPulse_delay")
     load_pulse(awgRead, read_T1_delay, "read_T1_delay")
     load_pulse(awgMarker, marker_T1_delay, "marker_T1_delay")
     readoutPulse_delay_id = find_wav_id(awgXY, "readoutPulse_delay")
@@ -29,11 +32,7 @@ function source(stim::T1, τ::Real)
     delay_id_Read = find_wav_id(awgRead, "20ns_delay")
     delay_id_Marker = find_wav_id(awgMarker, "20ns_delay")
 
-    #prepping AWG for sourcing: stopping AWG in case it wasn't stopped before, flushing
-    #queue to reset it, setting the PXI_line to off
-    awg_stop(awgXY, IQ_XY_chs...)
-    awg_stop(awgRead, IQ_readout_chs...)
-    awg_stop(awgMarker, markerCh)
+    #flushing queue
     queue_flush.(awgXY, IQ_XY_chs)
     queue_flush.(awgRead, IQ_readout_chs)
     queue_flush(awgMarker, markerCh)
@@ -74,11 +73,12 @@ end
 
 function source(stim::Rabi, t::Real)
     t<20e-9 && error("t must be at least 20ns")
+    configure_awgs(stim)
     #renaming for convinience
-    Qcon = Qcon[]
+    Qcon = qubitController[]
     awgXY = stim.q.awg
     awgRead = Qcon[RO].awg
-    awgMarker = Qcon[RO].awg
+    awgMarker = Qcon[Marker].awg
     IQ_XY_chs = (stim.q.Ich, stim.q.Qch)
     IQ_readout_chs = (Qcon[RO].Ich, Qcon[RO].Qch)
     markerCh = Qcon[Marker].ch
@@ -113,11 +113,7 @@ function source(stim::Rabi, t::Real)
     delay_id_Read = find_wav_id(awgRead, "20ns_delay")
     delay_id_Marker = find_wav_id(awgMarker, "20ns_delay")
 
-    #prepping AWG for sourcing: stopping AWG in case it wasn't stopped before, flushing
-    #queue to reset it, setting the PXI_line to off
-    awg_stop(awgXY, IQ_XY_chs...)
-    awg_stop(awgRead, IQ_readout_chs...)
-    awg_stop(awgMarker, markerCh)
+    #flushing queue
     queue_flush.(awgXY, IQ_XY_chs)
     queue_flush.(awgRead, IQ_readout_chs)
     queue_flush(awgMarker, markerCh)
@@ -156,12 +152,13 @@ function source(stim::Rabi, t::Real)
 end
 
 function source(stim::Ramsey, τ::Real)
+    configure_awgs(stim)
     τ<20e-9 && error("τ must be at least 20ns")
     (rem(round(τ/1e-9), 10) != 0.0) && error("τ must be in mutiple of 10ns")
-    Qcon = Qcon[]
+    Qcon = qubitController[]
     awgXY = stim.q.awg
     awgRead = Qcon[RO].awg
-    awgMarker = Qcon[RO].awg
+    awgMarker = Qcon[Marker].awg
     IQ_XY_chs = (stim.q.Ich, stim.q.Qch)
     IQ_readout_chs = (Qcon[RO].Ich, Qcon[RO].Qch)
     markerCh = Qcon[Marker].ch
@@ -185,11 +182,7 @@ function source(stim::Ramsey, τ::Real)
     delay_id_Read = find_wav_id(awgRead, "20ns_delay")
     delay_id_Marker = find_wav_id(awgMarker, "20ns_delay")
 
-    #prepping AWG for sourcing: stopping AWG in case it wasn't stopped before, flushing
-    #queue to reset it, setting the PXI_line to off
-    awg_stop(awgXY, IQ_XY_chs...)
-    awg_stop(awgRead, IQ_readout_chs...)
-    awg_stop(awgMarker, markerCh)
+    #flushing queue
     queue_flush.(awgXY, IQ_XY_chs)
     queue_flush.(awgRead, IQ_readout_chs)
     queue_flush(awgMarker, markerCh)
@@ -230,12 +223,13 @@ function source(stim::Ramsey, τ::Real)
 end
 
 function source(stim::StarkShift, t::Real)
+    configure_awgs(stim)
     t<20e-9 && error("t must be at least 20ns")
     #renaming for convinience
-    Qcon = Qcon[]
+    Qcon = qubitController[]
     awgXY = stim.q.awg
     awgRead = Qcon[RO].awg
-    awgMarker = Qcon[RO].awg
+    awgMarker = Qcon[Marker].awg
     IQ_XY_chs = (stim.q.Ich, stim.q.Qch)
     IQ_readout_chs = (Qcon[RO].Ich, Qcon[RO].Qch)
     markerCh = Qcon[Marker].ch
@@ -264,11 +258,7 @@ function source(stim::StarkShift, t::Real)
     delay_id_Read = find_wav_id(awgRead, "20ns_delay")
     delay_id_Marker = find_wav_id(awgMarker, "20ns_delay")
 
-    #prepping AWG for sourcing: stopping AWG in case it wasn't stopped before, flushing
-    #queue to reset it, setting the PXI_line to off
-    awg_stop(awgXY, IQ_XY_chs...)
-    awg_stop(awgRead, IQ_readout_chs...)
-    awg_stop(awgMarker, markerCh)
+    #flushing queue
     queue_flush.(awgXY, IQ_XY_chs)
     queue_flush.(awgRead, IQ_readout_chs)
     queue_flush(awgMarker, markerCh)
@@ -306,11 +296,12 @@ function source(stim::StarkShift, t::Real)
 end
 
 function source(stim::CPecho)
+    configure_awgs(stim)
     #renaming for convinience
-    Qcon = Qcon[]
+    Qcon = qubitController[]
     awgXY = stim.q.awg
     awgRead = Qcon[RO].awg
-    awgMarker = Qcon[RO].awg
+    awgMarker = Qcon[Marker].awg
     IQ_XY_chs = (stim.q.Ich, stim.q.Qch)
     IQ_readout_chs = (Qcon[RO].Ich, Qcon[RO].Qch)
     markerCh = Qcon[Marker].ch
@@ -349,11 +340,7 @@ function source(stim::CPecho)
     delay_id_Read = find_wav_id(awgRead, "20ns_delay")
     delay_id_Marker = find_wav_id(awgMarker, "20ns_delay")
 
-    #prepping AWG for sourcing: stopping AWG in case it wasn't stopped before, flushing
-    #queue to reset it, setting the PXI_line to off
-    awg_stop(awgXY, IQ_XY_chs...)
-    awg_stop(awgRead, IQ_readout_chs...)
-    awg_stop(awgMarker, markerCh)
+    #flushing queue
     queue_flush.(awgXY, IQ_XY_chs)
     queue_flush.(awgRead, IQ_readout_chs)
     queue_flush(awgMarker, markerCh)
@@ -404,10 +391,11 @@ function source(c::CPecho_τ, τ::Real)
 end
 
 function source(stim::ReadoutReference)
+    configure_awgs(stim)
     #renaming for convinience
-    Qcon = Qcon[]
+    Qcon = qubitController[]
     awgRead = Qcon[RO].awg
-    awgMarker = Qcon[RO].awg
+    awgMarker = Qcon[Marker].awg
     IQ_readout_chs = (Qcon[RO].Ich, Qcon[RO].Qch)
     markerCh = Qcon[Marker].ch
     readoutPulse = Qcon[ReadoutPulse]
@@ -419,8 +407,6 @@ function source(stim::ReadoutReference)
     delay_id_Read = find_wav_id(awgRead, "20ns_delay")
     delay_id_Marker = find_wav_id(awgMarker, "20ns_delay")
 
-    awg_stop(awgRead, IQ_readout_chs...)
-    awg_stop(awgMarker, markerCh)
     queue_flush.(awgRead, IQ_readout_chs)
     queue_flush(awgMarker, markerCh)
     sleep(0.001)

@@ -5,6 +5,7 @@ export ReadoutLength
 export ReadoutIF
 export ReadoutPower
 export ReadoutAmplitude
+export ReadoutPulse
 export DecayDelay
 export EndDelay
 
