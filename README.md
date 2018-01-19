@@ -1,2 +1,2 @@
-# KeysightQubits
-InstrumentControl code for typical qubit characterization (T1, Ramsey, etc) 
+# QuTroller
+Qubit Controller Interface in the form of a virtual, configurable controller unit. Keeps track of individual qubits, as well as the hardware needed to control the qubits and perform readout, in an intuitive way, which allows for quick and efficient configuration of hardware. Written to work with the InstrumentControl.jl package, and particularly with Keysight's PXI hardware line. Currently (besides the controller interface), code is written for typical qubit characterization (T1, Ramsey, etc) in the form of Stimulus and Response types. 
