@@ -43,7 +43,8 @@ struct QubitController
         configuration = Dict{Any, Any}()
         Qcon = new(qubits, configuration)
         Qcon.configuration[ReadoutIF] = 100e6
-        Qcon.configuration[ReadoutPulse] = DigitalPulse(100e6, 0)
+        Qcon.configuration[ReadoutLength] = 500e-9
+        Qcon.configuration[ReadoutPulse] = DigitalPulse(100e6, 0, 500e-9)
         return Qcon
     end
 end

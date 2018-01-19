@@ -16,6 +16,10 @@ function getindex(Qcon::QubitController, ::Type{RO})
     return Qcon.configuration[RO]
 end
 
+function getindex(Qcon::QubitController, ::Type{xyLOsource})
+    return Qcon.configuration[xyLOsource]
+end
+
 function getindex(Qcon::QubitController, ::Type{ReadoutPulse})
     return Qcon.configuration[ReadoutPulse]
 end
@@ -26,6 +30,10 @@ end
 
 function getindex(Qcon::QubitController, ::Type{ReadoutIF})
     return Qcon.configuration[ReadoutIF]
+end
+
+function getindex(Qcon::QubitController, ::Type{ReadoutLO})
+    return Qcon[RO].lo[Frequency]
 end
 
 function getindex(Qcon::QubitController, ::Type{DecayDelay})
@@ -78,4 +86,8 @@ function getindex(Qcon::QubitController, q::AbstractString, ::Type{xyIF})
     else
         return Qcon[q].awg[FGFrequency, Qcon[q].Ich]
     end
+end
+
+function getindex(Qcon::QubitController, ::Type{xyLO})
+    return Qcon[xyLOsource][Frequency]
 end

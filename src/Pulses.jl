@@ -112,49 +112,50 @@ directly by a channel's arbitrary waveform generator, which eventually are used
 to make a ~GHz pulse (along with an IQ mixer). It holds both the I and Q
 waveforms, as wll as the pulse's duration.
 
-There are three inner constructors to make an `DigitalPulse` object:
-        DigitalPulse(IF_freq, IF_phase)
-        DigitalPulse(IF_freq, IF_phase, duration)
-        DigitalPulse(IF_freq, IF_phase, duration, I_wav, Q_wav)
+There are two inner constructors to make an `DigitalPulse` object:
+        DigitalPulse(IF_freqs, IF_phase, duration)
+        DigitalPulse(IF_freqs, IF_phase, duration, I_wav, Q_wav)
 
 as well as an overloaded function which allows for standard/optional arguments:
-        DigitalPulse(IF_freq::Real, duration::Real, ::Type{CosEnvelope},
+        DigitalPulse(IF_freqs::Vector{Float64}, duration::Real, ::Type{CosEnvelope},
            sample_rate::Real, IF_phase::Real = 0)
-        DigitalPulse(IF_freq::Real, duration::Real, ::Type{RectEnvelope},
+        DigitalPulse(IF_freqs::Vector{Float64}, duration::Real, ::Type{RectEnvelope},
            sample_rate::Real, IF_phase::Real = 0)
 
 where besides fields on the type, the function also takes as input singleton objects of
 subtypes of the abstract type `Envelope`; this input determines what kind of envelope
-will be synthesized to be multiplied to the periodic signal to make the final I and Q waveforms
+will be synthesized to be multiplied to the periodic signal to make the final I and Q waveforms.
+
+Meant to be used for synthesizing readout pulses, multiplexed or otherwise (which is
+why it's first field is a vector of IF frequencies)
 
 """
 mutable struct DigitalPulse <: Pulse
-    IF_freq::Float64
+    IF_freqs::Vector{Float64}
     IF_phase::Float64
     duration::Float64
     I_waveform::Waveform
     Q_waveform::Waveform
 
-    DigitalPulse(IF_freq, IF_phase) = new(IF_freq, IF_phase)
-    DigitalPulse(IF_freq, IF_phase, duration) = new(IF_freq, IF_phase, duration)
-    DigitalPulse(IF_freq, IF_phase, duration, I_wav, Q_wav) =
-                 new(IF_freq, IF_phase, duration, I_wav, Q_wav)
+    DigitalPulse(IF_freqs, IF_phase, duration) = new(IF_freqs, IF_phase, duration)
+    DigitalPulse(IF_freqs, IF_phase, duration, I_wav, Q_wav) =
+                 new(IF_freqs, IF_phase, duration, I_wav, Q_wav)
 end
 
-function DigitalPulse(IF_freq::Real, duration::Real, ::Type{CosEnvelope},
+function DigitalPulse(IF_freqs::Vector{Float64}, duration::Real, ::Type{CosEnvelope},
                       sample_rate::Real, IF_phase::Real = 0; name = "CosEnvelope_"*
                       string(duration))
     env = make_CosEnvelope(duration, sample_rate)
-    pulse = DigitalPulse_general(IF_freq, duration, env, sample_rate,
+    pulse = DigitalPulse_general(IF_freqs, duration, env, sample_rate,
                                  IF_phase, name)
     return pulse
 end
 
-function DigitalPulse(IF_freq::Real, duration::Real, ::Type{RectEnvelope},
+function DigitalPulse(IF_freqs::Vector{Float64}, duration::Real, ::Type{RectEnvelope},
                       sample_rate::Real, IF_phase::Real = 0; name = "CosEnvelope_"*
                       string(duration))
     env = make_RectEnvelope(duration, sample_rate)
-    pulse = DigitalPulse_general(IF_freq, duration, env, sample_rate,
+    pulse = DigitalPulse_general(IF_freqs, duration, env, sample_rate,
                                  IF_phase, name)
     return pulse
 end
@@ -323,13 +324,18 @@ end
 
 #helper functions
 
-function DigitalPulse_general(IF_freq::Real, duration::Real,
+function DigitalPulse_general(IF_freqs::Vector{Float64}, duration::Real,
                               env::Vector{Float64}, sample_rate::Real, IF_phase::Real,
                               name::AbstractString)
     d = duration
     time_step = 1/sample_rate; t = linspace(time_step, d, floor(d/time_step + 0.001))
-    IF_signal = exp.(im*(2π*IF_freq*t + IF_phase))
-    full_pulse = IF_signal.*env
+    num_frequencies = size(IF_freqs)[1]
+    total_IF = zeros(Complex{Float32}, size(env)[1]) #initialized array for loop
+    for freq in IF_freqs
+        IF_signal = exp.(im*(2π*freq*t + IF_phase))
+        total_IF = total_IF .+ IF_signal
+    end
+    full_pulse = (total_IF.*env)/num_frequencies
     I_pulse = real(full_pulse)
     Q_pulse = imag(full_pulse)
     I_wav = Waveform(I_pulse, "I_"*name)
@@ -342,7 +348,7 @@ function DigitalPulse_general(IF_freq::Real, duration::Real,
         duration = size(I_wav.waveformValues)[1]/sample_rate
         println("Your pulse was back-padded with zeros to achieve correct samples number")
     end
-    pulse = DigitalPulse(IF_freq, IF_phase, duration, I_wav, Q_wav)
+    pulse = DigitalPulse(IF_freqs, IF_phase, duration, I_wav, Q_wav)
     return pulse
  end
 
