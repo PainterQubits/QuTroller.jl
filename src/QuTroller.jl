@@ -1,5 +1,5 @@
 __precompile__(true)
-module KeysightQubits
+module QuTroller
 
 import ICCommon: source, Stimulus, measure, Response
 
