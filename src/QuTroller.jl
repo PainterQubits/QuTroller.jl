@@ -42,15 +42,15 @@ struct QubitController
         qubits = Dict{String, Qubit}()
         configuration = Dict{Any, Any}()
         Qcon = new(qubits, configuration)
-        Qcon.configuration[ReadoutIF] = 100e6
+        Qcon.configuration[ReadoutIF] = [100e6]
         Qcon.configuration[ReadoutLength] = 500e-9
-        Qcon.configuration[ReadoutPulse] = DigitalPulse(100e6, 0, 500e-9)
+        Qcon.configuration[ReadoutPulse] = DigitalPulse([100e6], 0, 500e-9)
         return Qcon
     end
 end
 
-function Qubit(Qcon::QubitController, awg, Ich, Qch, dc, name::AbstractString)
-    q = Qubit(awg, Ich, Qch, dc)
+function Qubit(Qcon::QubitController, awg, Ich, Qch, name::AbstractString)
+    q = Qubit(awg, Ich, Qch)
     Qcon.qubits[name] = q
     XY_delay_20ns = DelayPulse(20e-9, q.awg[SampleRate], name = "20ns_delay")
     load_pulse(q.awg, XY_delay_20ns, "20ns_delay")

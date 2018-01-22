@@ -14,6 +14,7 @@ export Averages
 export DigDelay
 export PXI
 
+export xyLOsource
 export xyLO
 export xyIF
 export xyAmplitude

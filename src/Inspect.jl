@@ -29,7 +29,11 @@ function getindex(Qcon::QubitController, ::Type{ReadoutLength})
 end
 
 function getindex(Qcon::QubitController, ::Type{ReadoutIF})
-    return Qcon.configuration[ReadoutIF]
+    if size(Qcon.configuration[ReadoutIF])[1] == 1
+        return Qcon.configuration[ReadoutIF][1]
+    else
+        return Qcon.configuration[ReadoutIF]
+    end
 end
 
 function getindex(Qcon::QubitController, ::Type{ReadoutLO})
@@ -73,7 +77,7 @@ function getindex(Qcon::QubitController, ::Type{ReadoutAmplitude})
 end
 
 function getindex(Qcon::QubitController, q::AbstractString, ::Type{xyAmplitude})
-    if Qcon[q].awg[Amplitude, Qcon[q].Ich] != Qcon[q].awg[AmpModGain, Qcon[q].Qch]
+    if Qcon[q].awg[AmpModGain, Qcon[q].Ich] != Qcon[q].awg[AmpModGain, Qcon[q].Qch]
         error("I and Q amplitudes are not configured to be the same. Please reconfigure amplitudes")
     else
         return Qcon[q].awg[AmpModGain, Qcon[q].Ich]

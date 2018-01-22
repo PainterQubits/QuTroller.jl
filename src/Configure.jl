@@ -30,7 +30,7 @@ function setindex!(Qcon::QubitController, lo::Instrument, ::Type{xyLOsource})
 end
 
 function setindex!(Qcon::QubitController, length::Real, ::Type{ReadoutLength})
-    roPulse = DigitalPulse(Qcon[ReadoutIF], length, RectEnvelope, Qcon[RO].awg[SampleRate],
+    roPulse = DigitalPulse(Qcon.configuration[ReadoutIF], length, RectEnvelope, Qcon[RO].awg[SampleRate],
                            name = "Qubit Controller Readout Pulse")
     load_pulse(Qcon[RO].awg, roPulse, "Qubit Controller Readout Pulse")
     marker_pulse = DCPulse(length, RectEdge, Qcon[Marker].awg[SampleRate],
@@ -49,7 +49,7 @@ function setindex!(Qcon::QubitController, freq::Real, ::Type{ReadoutIF})
                            name = "Qubit Controller Marker Pulse")
     load_pulse(Qcon[Marker].awg, marker_pulse, "Qubit Controller Marker Pulse")
     Qcon[ReadoutPulse] = roPulse
-    Qcon.configuration[ReadoutIF] = freq
+    Qcon.configuration[ReadoutIF] = [freq]
     nothing
 end
 

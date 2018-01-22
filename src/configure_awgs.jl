@@ -73,6 +73,7 @@ function single_qubitANDpulse_config(stim::QubitCharacterization)
         IF_phase = get_XYPulse(stim).IF_phase
     else
         IF_phase = 0
+    end
     @KSerror_handler SD_AOU_channelPhaseResetMultiple(awgXY.ID,  nums_to_mask(IQ_XY_chs...))
     sleep(0.001)
     awgXY[FGPhase, IQ_XY_chs[1]] = IF_phase

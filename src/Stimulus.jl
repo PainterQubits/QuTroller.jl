@@ -8,6 +8,7 @@ export CPecho_n
 export CPecho_τ
 export PiNoPiTesting
 export ReadoutReference
+export DoubleRabi
 
 """
 A Stimulus subtype for doing single qubit characterization experiments, such as
@@ -224,6 +225,15 @@ The corresponding source function is source(stim).
 """
 mutable struct ReadoutReference <: Stimulus
     delay::Float64
+end
+
+mutable struct DoubleRabi <: QubitCharacterization
+    q1::Qubit
+    q2::Qubit
+    axisname::Symbol
+    axislabel::String
+
+    DoubleRabi(q1, q2) = new(q1, q2, :xyduration, "XY Pulse Duration")
 end
 
 include("configure_awgs.jl")
