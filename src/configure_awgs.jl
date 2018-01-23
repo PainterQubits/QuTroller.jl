@@ -70,9 +70,9 @@ function configure_awgs(stim::QubitCharacterization)
     awgXY[AmpModMode, IQ_XY_chs...] = :AmplitudeMod
     awgXY[AngModMode, IQ_XY_chs...] = :Off
     if X in keys(stim.q.gates)
-        IF_phase = q.gates[X].IF_phase
+        IF_phase = stim.q.gates[X].IF_phase
     elseif X_2 in keys(stim.q.gates)
-        IF_phase = q.gates[X_2].IF_phase
+        IF_phase = stim.q.gates[X_2].IF_phase
     else
         IF_phase = 0
     end

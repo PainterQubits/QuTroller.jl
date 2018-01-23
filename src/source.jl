@@ -10,7 +10,7 @@ function source(stim::T1, τ::Real)
     IQ_XY_chs = (stim.q.Ich, stim.q.Qch)
     IQ_readout_chs = (Qcon[RO].Ich, Qcon[RO].Qch)
     markerCh = Qcon[Marker].ch
-    πPulse = q.gates[X]
+    πPulse = stim.q.gates[X]
     readoutPulse = Qcon[ReadoutPulse]
 
     #computing delays and loading delays
@@ -152,7 +152,7 @@ function source(stim::Ramsey, τ::Real)
     IQ_XY_chs = (stim.q.Ich, stim.q.Qch)
     IQ_readout_chs = (Qcon[RO].Ich, Qcon[RO].Qch)
     markerCh = Qcon[Marker].ch
-    π_2Pulse = q.gates[X_2]
+    π_2Pulse = stim.q.gates[X_2]
     readoutPulse = Qcon[ReadoutPulse]
 
     #computing delays and loading delays
@@ -224,7 +224,7 @@ function source(stim::StarkShift, t::Real)
     IQ_XY_chs = (stim.q.Ich, stim.q.Qch)
     IQ_readout_chs = (Qcon[RO].Ich, Qcon[RO].Qch)
     markerCh = Qcon[Marker].ch
-    πPulse = q.gates[X]
+    πPulse = stim.q.gates[X]
     readoutPulse = Qcon[ReadoutPulse]
 
     #make drive pulse and load it
@@ -297,8 +297,8 @@ function source(stim::CPecho)
     IQ_XY_chs = (stim.q.Ich, stim.q.Qch)
     IQ_readout_chs = (Qcon[RO].Ich, Qcon[RO].Qch)
     markerCh = Qcon[Marker].ch
-    πPulse = q.gates[X]
-    π_2Pulse = q.gates[X_2]
+    πPulse = stim.q.gates[X]
+    π_2Pulse = stim.q.gates[X_2]
     readoutPulse = Qcon[ReadoutPulse]
     nπ = stim.n_π
     τ = stim.τ
