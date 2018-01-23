@@ -117,6 +117,26 @@ function setindex!(Qcon::QubitController, amp::Real, q::AbstractString, ::Type{x
     nothing
 end
 
+function setindex!(Qcon::QubitController, pulse::Pulse, q::AbstractString, ::Type{T}) where {T<:Gate}
+    load_pulse(Qcon[q].awg, pulse)
+    Qcon[q].gates[T] = pulse
+    nothing
+end
+
+function setindex!(Qcon::QubitController, length::Real, q::AbstractString, ::Type{X})
+    pulse = AnalogPulse(length, CosEnvelope, Qcon[q].awg[SampleRate], name = q*" X π pulse")
+    load_pulse(Qcon[q].awg, pulse, q*" X π pulse")
+    Qcon[q].gates[X] = pulse
+    nothing
+end
+
+function setindex!(Qcon::QubitController, length::Real, q::AbstractString, ::Type{X_2})
+    pulse = AnalogPulse(length, CosEnvelope, Qcon[q].awg[SampleRate], name = q*" X π/2 pulse")
+    load_pulse(Qcon[q].awg, pulse, q*" X π/2 pulse")
+    Qcon[q].gates[X_2] = pulse
+    nothing
+end
+
 function setindex!(Qcon::QubitController, freq::Real, ::Type{xyLO})
     Qcon[xyLOsource][Frequency] = freq
     nothing

@@ -6,6 +6,13 @@ import ICCommon: source, Stimulus, measure, Response
 export DCSource
 export Qubit
 
+export Gate
+export X
+export Y
+export Z
+export X_2
+export Y_2
+
 using InstrumentControl
 using InstrumentControl: AWGM320XA, DigitizerM3102A
 using KeysightInstruments
@@ -18,18 +25,23 @@ include("Pulses.jl")
 include("helper.jl")
 include("Properties.jl")
 
-abstract type DCSource end
+abstract type Gate end
 
-mutable struct keysightDC <: DCSource
-    awg::InsAWGM320XA
-    ch::Int
-end
+abstract type X <: Gate end
+abstract type Y <: Gate end
+abstract type X_2 <: Gate end
+abstract type Y_2 <: Gate end
+abstract type Z <: Gate end
 
 mutable struct Qubit
     awg::Instrument
     Ich::Int
     Qch::Int
     #dc::DCSource
+    gates::Dict{Any, Pulse}
+
+    Qubit(awg, Ich, Qch) = new(awg, Ich, Qch, Dict{Any, Pulse}())
+    Qubit(awg, Ich, Qch, gates) = new(awg, Ich, Qch, gates)
 end
 
 #using struct instead of mutable struct can help runtime performance (due to simpler structure on memory)...

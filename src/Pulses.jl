@@ -84,7 +84,7 @@ function AnalogPulse(duration::Real, ::Type{CosEnvelope}, sample_rate::Real,
             pad_zeros = ten_ns - Int(rem(floor(duration*sample_rate + 0.001), ten_ns))
             env.waveformValues = append!(zeros(pad_zeros), env.waveformValues)
             duration = size(env.waveformValues)[1]/sample_rate
-            println("Your pulse was front-padded with zeros to achieve correct samples number")
+            #println("Your pulse was front-padded with zeros to achieve correct samples number")
         end
         pulse = AnalogPulse(IF_phase, duration, env)
         return pulse

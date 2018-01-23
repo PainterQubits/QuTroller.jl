@@ -92,6 +92,10 @@ function getindex(Qcon::QubitController, q::AbstractString, ::Type{xyIF})
     end
 end
 
+function getindex(Qcon::QubitController, q::AbstractString, ::Type{T}) where {T<:Gate}
+    return Qcon[q].gates[T] 
+end
+
 function getindex(Qcon::QubitController, ::Type{xyLO})
     return Qcon[xyLOsource][Frequency]
 end

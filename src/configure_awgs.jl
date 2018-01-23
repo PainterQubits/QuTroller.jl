@@ -1,5 +1,20 @@
 export configure_awgs
 
+"""
+        configure_awgs(stim::T1)
+        configure_awgs(stim::Rabi)
+        configure_awgs(stim::Ramsey)
+        configure_awgs(stim::StarkShift)
+        configure_awgs(stim::CPecho)
+        configure_awgs(stim::CPecho_n)
+        configure_awgs(stim::CPecho_τ)
+        configure_awgs(stim::ReadoutReference)
+
+Function to configure AWG channels to proper settings prior to sourcing of
+Stimulus `QubitCharacterization` or `ReadoutReference` objects.
+"""
+function configure_awgs end
+
 function RO_Marker_config(stim::Stimulus)
     Qcon = qubitController[]
     (rem(round(Qcon[ReadoutPulse].duration/1e-9), 10) != 0.0) &&
@@ -36,22 +51,7 @@ function RO_Marker_config(stim::Stimulus)
     nothing
 end
 
-"""
-        configure_awgs(stim::T1)
-        configure_awgs(stim::Rabi)
-        configure_awgs(stim::Ramsey)
-        configure_awgs(stim::StarkShift)
-        configure_awgs(stim::CPecho)
-        configure_awgs(stim::CPecho_n)
-        configure_awgs(stim::CPecho_τ)
-        configure_awgs(stim::ReadoutReference)
-
-Function to configure AWG channels to proper settings prior to sourcing of
-Stimulus `QubitCharacterization` or `ReadoutReference` objects.
-"""
-function configure_awgs end
-
-function single_qubitANDpulse_config(stim::QubitCharacterization)
+function configure_awgs(stim::QubitCharacterization)
     RO_Marker_config(stim)
     Qcon = qubitController[]
     awgXY = stim.q.awg
@@ -69,8 +69,10 @@ function single_qubitANDpulse_config(stim::QubitCharacterization)
     awgXY[TrigSync, IQ_XY_chs...] = :CLK10
     awgXY[AmpModMode, IQ_XY_chs...] = :AmplitudeMod
     awgXY[AngModMode, IQ_XY_chs...] = :Off
-    if typeof(get_XYPulse(stim)) == AnalogPulse
-        IF_phase = get_XYPulse(stim).IF_phase
+    if X in keys(stim.q.gates)
+        IF_phase = q.gates[X].IF_phase
+    elseif X_2 in keys(stim.q.gates)
+        IF_phase = q.gates[X_2].IF_phase
     else
         IF_phase = 0
     end
@@ -81,42 +83,8 @@ function single_qubitANDpulse_config(stim::QubitCharacterization)
     nothing
 end
 
-configure_awgs(stim::Rabi) = single_qubitANDpulse_config(stim)
+configure_awgs(stim::CPecho_n) = configure_awgs(stim.CPstim)
 
-function configure_awgs(stim::T1)
-    single_qubitANDpulse_config(stim)
-    load_pulse(stim.q.awg, stim.πPulse)
-    nothing
-end
-
-function configure_awgs(stim::Ramsey)
-    single_qubitANDpulse_config(stim)
-    load_pulse(stim.q.awg, stim.π_2Pulse)
-    nothing
-end
-
-function configure_awgs(stim::StarkShift)
-    single_qubitANDpulse_config(stim)
-    load_pulse(stim.q.awg, stim.πPulse)
-    nothing
-end
-
-function configure_awgs(stim::CPecho)
-    single_qubitANDpulse_config(stim)
-    load_pulse(stim.q.awg, stim.πPulse)
-    load_pulse(stim.q.awg, stim.π_2Pulse)
-    nothing
-end
-
-function configure_awgs(stim::CPecho_n)
-    configure_awgs(stim.CPstim)
-end
-
-function configure_awgs(stim::CPecho_τ)
-    configure_awgs(stim.CPstim)
-end
+configure_awgs(stim::CPecho_τ) = configure_awgs(stim.CPstim)
 
 configure_awgs(stim::ReadoutReference) = RO_Marker_config(stim)
-
-
-get_XYPulse(stim::QubitCharacterization) = getfield(stim, 2)
