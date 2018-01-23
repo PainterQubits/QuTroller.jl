@@ -1,3 +1,65 @@
+mutable struct SmartVz <: Stimulus
+    Vz::Stimulus
+    q::String
+    read_freq_range::Vector{Float64}
+    xy_freq_range::Vector{Float64}
+    π_length_range::Vector{Float64}
+    avgIQ::RO_IQ_Response
+    bool_RO::Bool
+    bool_xy::Bool
+    bool_π::Bool
+end
+
+function source(stim::SmartVz, voltage::Float64)
+    Qcon = qubitController[]
+    rabi = Rabi(Qcon[stim.q])
+    πLength_guess = q.gates[X].duration
+    if bool_RO[1]
+        Qcon[xyLOsource][Output] = false
+        source(stim.Vz, voltage)
+        current_lo = Qcon[ReadoutLO]
+        num_freqs = size(stim.read_freq_range)[1]
+        amp_values = Vector{Float64}(num_freqs)
+        for j in range(1, num_freqs)
+            Qcon[ReadoutLO] = stim.read_freq_range[j]
+            amplitude = abs(measure(stim.avgIQ))
+            amp_values[j] = amplitude
+        end
+        readout_freq = stim.read_freq_range[indmin(amp_values)]
+        Qcon[xyLOsource][Output] = true
+        stim.read_freq_range = stim.read_freq_range - (current_lo - readout_freq)
+        Qcon[ReadoutLO] = readout_freq
+    end
+    if bool_xy[2]
+        source(stim.Vz, voltage)
+        current_lo = Qcon[xyLO]
+        num_freqs = size(stim.xy_freq_range)[1]
+        amp_values = Vector{Float64}(num_freqs)
+        source(rabi, πLength_guess)
+        for j in range(1, num_freqs)
+            Qcon[xyLO] = stim.xy_freq_range[j]
+            amplitude = abs(measure(stim.avgIQ))
+            amp_values[j] = amplitude
+        end
+        xy_freq = stim.xy_freq_range[indmax(amp_values)]
+        stim.xy_freq_range = stim.xy_freq_range - (current_lo - xy_freq)
+        Qcon[xyLO] = xy_freq
+    end
+    if bool_π[3]
+        source(stim.Vz, voltage)
+        num_t = size(stim.π_length_range)[1]
+        amp_values = Vector{Float64}(num_t)
+        for j in range(1, num_t)
+            source(rabi, stim.π_length_range[j])
+            amplitude = abs(measure(stim.avgIQ))
+            amp_values[j] = amplitude
+        end
+        πLength = stim.π_length_range[indmax(amp_values)]
+        Qcon[Qcon[stim.q], X] = πLength
+    end
+end
+
+
 mutable struct DoubleRabi <: QubitCharacterization
     q1::Qubit
     q2::Qubit
