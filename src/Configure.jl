@@ -1,232 +1,148 @@
-export configure_awgs
+import Base: setindex!
 
-"""
-        configure_awgs(stim::T1)
-        configure_awgs(stim::Rabi)
-        configure_awgs(stim::Ramsey)
-        configure_awgs(stim::StarkShift)
-        configure_awgs(stim::ReadoutReference)
-
-Function to configure AWG channels and load appropriate waveforms prior to
-sourcing of Stimulus `QubitCharacterization` or `ReadoutReference` objects.
-"""
-function configure_awgs end
-
-function configure_awgs_general(stim::QubitCharacterization)
-    (rem(round(stim.readoutPulse.duration/1e-9), 10) != 0.0) &&
-                        error("Readout pulse length must be in mutiple of 10ns")
-    awgXY = stim.awgXY
-    awgRead = stim.awgRead
-    awgMarker = stim.awgMarker
-    awg_stop(awgXY, stim.IQ_XY_chs...); awg_stop(awgRead, stim.IQ_readout_chs...)
-    awg_stop(awgMarker, stim.markerCh)
-
-    #Configuring XY channels
-    awgXY[Amplitude,stim.IQ_XY_chs...] = 0 #turning off generator in case it was already on
-    awgXY[OutputMode, stim.IQ_XY_chs...] = :Sinusoidal
-    awgXY[DCOffset,stim.IQ_XY_chs...] = 0
-    awgXY[QueueCycleMode, stim.IQ_XY_chs...] = :Cyclic
-    awgXY[QueueSyncMode, stim.IQ_XY_chs...] = :CLK10
-    awgXY[TrigSource, stim.IQ_XY_chs...] = stim.PXI_line
-    awgXY[TrigBehavior, stim.IQ_XY_chs...] = :Low
-    awgXY[TrigSync, stim.IQ_XY_chs...] = :CLK10
-    awgXY[AmpModMode, stim.IQ_XY_chs...] = :AmplitudeMod
-    awgXY[AngModMode, stim.IQ_XY_chs...] = :Off
-
-    #Configuring Readout channels
-    awgRead[OutputMode, stim.IQ_readout_chs...] = :Arbitrary
-    awgRead[Amplitude,stim.IQ_readout_chs...] = stim.readoutPulse.amplitude
-    awgRead[DCOffset, stim.IQ_readout_chs...] = 0
-    awgRead[QueueCycleMode, stim.IQ_readout_chs...] = :Cyclic
-    awgRead[QueueSyncMode, stim.IQ_readout_chs...] = :CLK10
-    awgRead[TrigSource, stim.IQ_readout_chs...] = stim.PXI_line
-    awgRead[TrigBehavior, stim.IQ_readout_chs...] = :Low
-    awgRead[TrigSync, stim.IQ_readout_chs...] = :CLK10
-    awgRead[AmpModMode, stim.IQ_readout_chs...] = :Off
-    awgRead[AngModMode, stim.IQ_readout_chs...] = :Off
-
-    #Configuring marker channel
-    awgMarker[OutputMode, stim.markerCh] = :Arbitrary
-    awgMarker[Amplitude, stim.markerCh] = 1.5 #arbitrary marker voltage I chose
-    awgMarker[DCOffset, stim.markerCh] = 0
-    awgMarker[QueueCycleMode, stim.markerCh] = :Cyclic
-    awgMarker[QueueSyncMode, stim.markerCh] = :CLK10
-    awgMarker[TrigSource, stim.markerCh] = stim.PXI_line
-    awgMarker[TrigBehavior, stim.markerCh] = :Low
-    awgMarker[TrigSync, stim.markerCh] = :CLK10
-    awgMarker[AmpModMode, stim.markerCh] = :Off
-    awgMarker[AngModMode, stim.markerCh] = :Off
-
-    #loading readout, marker, and delay pulses
-    load_pulse(awgRead, stim.readoutPulse)
-    marker_pulse = DCPulse(1.5, stim.readoutPulse.duration, RectEdge, awgMarker[SampleRate],
-                           name = "Markers_Voltage=1.5")
-    load_pulse(awgMarker, marker_pulse, "Markers_Voltage=1.5")
-    readoutPulse_delay = DelayPulse(stim.readoutPulse.duration, awgXY[SampleRate], name = "readoutPulse_delay")
-    load_pulse(awgXY, readoutPulse_delay, "readoutPulse_delay")
-    XY_delay_20ns = DelayPulse(20e-9, awgXY[SampleRate], name = "20ns_delay")
-    load_pulse(awgXY, XY_delay_20ns, "20ns_delay")
-    read_delay_20ns = DelayPulse(20e-9, awgRead[SampleRate], name = "20ns_delay")
-    load_pulse(awgRead, read_delay_20ns, "20ns_delay")
-    marker_delay_20ns = DelayPulse(20e-9, awgMarker[SampleRate], name = "20ns_delay")
-    load_pulse(awgMarker, marker_delay_20ns, "20ns_delay")
+function setindex!(Qcon::QubitController, marker::Tuple{InsAWGM320XA, Int}, ::Type{Marker})
+    marker_obj = Marker(marker...)
+    marker_delay_20ns = DelayPulse(20e-9, marker_obj.awg[SampleRate], name = "20ns_delay")
+    load_pulse(marker_obj.awg, marker_delay_20ns, "20ns_delay")
+    Qcon.configuration[Marker] = marker_obj
     nothing
 end
 
-function configure_awgs(stim::T1)
-    configure_awgs_general(stim)
-    awgXY = stim.awgXY
-    πPulse = stim.πPulse
-    load_pulse(awgXY, πPulse)
-    awgXY[AmpModGain, stim.IQ_XY_chs...] = πPulse.amplitude
-    awgXY[FGFrequency, stim.IQ_XY_chs...] = πPulse.IF_freq
-    @KSerror_handler SD_AOU_channelPhaseResetMultiple(awgXY.ID,  nums_to_mask(stim.IQ_XY_chs...))  #NOTE! through trial and error, I saw that this command needs to come before setting the phases of the FG
-    sleep(0.001)
-    awgXY[FGPhase, stim.IQ_XY_chs[1]] = stim.πPulse.IF_phase
-    awgXY[FGPhase, stim.IQ_XY_chs[2]] = stim.πPulse.IF_phase - 90 #cos(phi -pi/2) = sin(phi)
+function setindex!(Qcon::QubitController, digitizer::Tuple{InsDigitizerM3102A, Int, Int},
+                   ::Type{Digitizer})
+    digitizer_obj = Digitizer(digitizer...)
+    Qcon.configuration[Digitizer] = digitizer_obj
     nothing
 end
 
-function configure_awgs(stim::Rabi)
-    configure_awgs_general(stim)
-    awgXY = stim.awgXY
-    XYPulse = stim.XYPulse
-    awgXY[AmpModGain, stim.IQ_XY_chs...] = XYPulse.amplitude
-    awgXY[FGFrequency, stim.IQ_XY_chs...] = XYPulse.IF_freq
-    @KSerror_handler SD_AOU_channelPhaseResetMultiple(awgXY.ID,  nums_to_mask(stim.IQ_XY_chs...))
-    sleep(0.001)
-    awgXY[FGPhase, stim.IQ_XY_chs[1]] = XYPulse.IF_phase
-    awgXY[FGPhase, stim.IQ_XY_chs[2]] = XYPulse.IF_phase - 90 #cos(phi -pi/2) = sin(phi)
+function setindex!(Qcon::QubitController, readout::Tuple{InsAWGM320XA, Int, Int, Instrument},
+                   ::Type{RO})
+    readout_obj = RO(readout...)
+    read_delay_20ns = DelayPulse(20e-9, readout_obj.awg[SampleRate], name = "20ns_delay")
+    load_pulse(readout_obj.awg, read_delay_20ns, "20ns_delay")
+    Qcon.configuration[RO] = readout_obj
     nothing
 end
 
-function configure_awgs(stim::Ramsey)
-    #I make a T1 object because these two types have the exact same fields and
-    #configuration instructions, they only differ on the source function
-    temp_T1 = T1(stim.awgXY, stim.awgRead, stim.awgMarker, stim.π_2Pulse, stim.readoutPulse, stim.decay_delay,
-                 stim.end_delay, stim.IQ_XY_chs, stim.IQ_readout_chs, stim.markerCh, stim.PXI_line, stim.axisname, stim.axislabel)
-    configure_awgs(temp_T1)
+function setindex!(Qcon::QubitController, lo::Instrument, ::Type{xyLOsource})
+    Qcon.configuration[xyLOsource] = lo
     nothing
 end
 
-
-function configure_awgs(stim::StarkShift)
-    #I make a T1 object because these two types have the exact same fields and
-    #configuration instructions, they only differ on the source function
-    temp_T1 = T1(stim.awgXY, stim.awgRead, stim.awgMarker, stim.πPulse, stim.readoutPulse, stim.ringdown_delay,
-                 stim.end_delay, stim.IQ_XY_chs, stim.IQ_readout_chs, stim.markerCh, stim.PXI_line, stim.axisname, stim.axislabel)
-    configure_awgs(temp_T1)
+function setindex!(Qcon::QubitController, length::Real, ::Type{ReadoutLength})
+    roPulse = DigitalPulse(Qcon.configuration[ReadoutIF], length, RectEnvelope, Qcon[RO].awg[SampleRate],
+                           name = "Qubit Controller Readout Pulse")
+    load_pulse(Qcon[RO].awg, roPulse, "Qubit Controller Readout Pulse")
+    marker_pulse = DCPulse(length, RectEdge, Qcon[Marker].awg[SampleRate],
+                           name = "Qubit Controller Marker Pulse")
+    load_pulse(Qcon[Marker].awg, marker_pulse, "Qubit Controller Marker Pulse")
+    Qcon[ReadoutPulse] = roPulse
+    Qcon.configuration[ReadoutLength] = length
     nothing
 end
 
-function configure_awgs(stim::CPecho)
-    configure_awgs_general(stim)
-    awgXY = stim.awgXY
-    πPulse = stim.πPulse
-    π_2Pulse = stim.π_2Pulse
-    load_pulse(awgXY, πPulse)
-    load_pulse(awgXY, π_2Pulse)
-    awgXY[AmpModGain, stim.IQ_XY_chs...] = πPulse.amplitude
-    awgXY[FGFrequency, stim.IQ_XY_chs...] = πPulse.IF_freq
-    @KSerror_handler SD_AOU_channelPhaseResetMultiple(awgXY.ID,  nums_to_mask(stim.IQ_XY_chs...))
-    sleep(0.001)
-    awgXY[FGPhase, stim.IQ_XY_chs[1]] = stim.πPulse.IF_phase
-    awgXY[FGPhase, stim.IQ_XY_chs[2]] = stim.πPulse.IF_phase - 90 #cos(phi -pi/2) = sin(phi)
+function setindex!(Qcon::QubitController, freq::Real, ::Type{ReadoutIF})
+    roPulse = DigitalPulse([freq], Qcon[ReadoutLength], RectEnvelope, Qcon[RO].awg[SampleRate],
+                           name = "Qubit Controller Readout Pulse")
+    load_pulse(Qcon[RO].awg, roPulse, "Qubit Controller Readout Pulse")
+    marker_pulse = DCPulse(Qcon[ReadoutLength], RectEdge, Qcon[Marker].awg[SampleRate],
+                           name = "Qubit Controller Marker Pulse")
+    load_pulse(Qcon[Marker].awg, marker_pulse, "Qubit Controller Marker Pulse")
+    Qcon[ReadoutPulse] = roPulse
+    Qcon.configuration[ReadoutIF] = [freq]
     nothing
 end
 
-function configure_awgs(stim::CPecho_n)
-    configure_awgs(stim.CPstim)
-end
-
-function configure_awgs(stim::CPecho_τ)
-    configure_awgs(stim.CPstim)
-end
-
-function configure_awgs(stim::ReadoutReference)
-    (rem(round(stim.readoutPulse.duration/1e-9), 10) != 0.0) &&
-                        error("Readout pulse length must be in mutiple of 10ns")
-    awgRead = stim.awgRead
-    awgMarker = stim.awgMarker
-    awg_stop(awgRead, stim.IQ_readout_chs...)
-    awg_stop(awgMarker, stim.markerCh)
-
-    #Configuring Readout channels
-    awgRead[OutputMode, stim.IQ_readout_chs...] = :Arbitrary
-    awgRead[Amplitude,stim.IQ_readout_chs...] = stim.readoutPulse.amplitude
-    awgRead[DCOffset, stim.IQ_readout_chs...] = 0
-    awgRead[QueueCycleMode, stim.IQ_readout_chs...] = :Cyclic
-    awgRead[QueueSyncMode, stim.IQ_readout_chs...] = :CLK10
-    awgRead[TrigSource, stim.IQ_readout_chs...] = stim.PXI_line
-    awgRead[TrigBehavior, stim.IQ_readout_chs...] = :Low
-    awgRead[TrigSync, stim.IQ_readout_chs...] = :CLK10
-    awgRead[AmpModMode, stim.IQ_readout_chs...] = :Off
-    awgRead[AngModMode, stim.IQ_readout_chs...] = :Off
-
-    #Configuring marker channel
-    awgMarker[OutputMode, stim.markerCh] = :Arbitrary
-    awgMarker[Amplitude, stim.markerCh] = 1.5 #arbitrary marker voltage I chose
-    awgMarker[DCOffset, stim.markerCh] = 0
-    awgMarker[QueueCycleMode, stim.markerCh] = :Cyclic
-    awgMarker[QueueSyncMode, stim.markerCh] = :CLK10
-    awgMarker[TrigSource, stim.markerCh] = stim.PXI_line
-    awgMarker[TrigBehavior, stim.markerCh] = :Low
-    awgMarker[TrigSync, stim.markerCh] = :CLK10
-    awgMarker[AmpModMode, stim.markerCh] = :Off
-    awgMarker[AngModMode, stim.markerCh] = :Off
-
-    #loading readout, marker, and delay pulses
-    load_pulse(awgRead, stim.readoutPulse)
-    marker_pulse = DCPulse(1.5, stim.readoutPulse.duration, RectEdge, awgMarker[SampleRate],
-                           name = "Markers_Voltage=1.5")
-    load_pulse(awgMarker, marker_pulse, "Markers_Voltage=1.5")
-    read_delay_20ns = DelayPulse(20e-9, awgRead[SampleRate], name = "20ns_delay")
-    load_pulse(awgRead, read_delay_20ns, "20ns_delay")
-    marker_delay_20ns = DelayPulse(20e-9, awgMarker[SampleRate], name = "20ns_delay")
-    load_pulse(awgMarker, marker_delay_20ns, "20ns_delay")
+function setindex!(Qcon::QubitController, freqs::Vector{Float64}, ::Type{ReadoutIF})
+    roPulse = DigitalPulse(freqs, Qcon[ReadoutLength], RectEnvelope, Qcon[RO].awg[SampleRate],
+                           name = "Qubit Controller Readout Pulse")
+    load_pulse(Qcon[RO].awg, roPulse, "Qubit Controller Readout Pulse")
+    marker_pulse = DCPulse(Qcon[ReadoutLength], RectEdge, Qcon[Marker].awg[SampleRate],
+                           name = "Qubit Controller Marker Pulse")
+    load_pulse(Qcon[Marker].awg, marker_pulse, "Qubit Controller Marker Pulse")
+    Qcon[ReadoutPulse] = roPulse
+    Qcon.configuration[ReadoutIF] = freqs
     nothing
 end
 
-function configure_awgs(stim::PiNoPiTesting)
-    (rem(round(stim.readoutPulse.duration/1e-9), 10) != 0.0) &&
-                        error("Readout pulse length must be in mutiple of 10ns")
-    awgRead = stim.awgRead
-    awgMarker = stim.awgMarker
-    awg_stop(awgRead, stim.IQ_readout_chs...)
-    awg_stop(awgMarker, stim.markerCh)
+function setindex!(Qcon::QubitController, freq::Real, ::Type{ReadoutLO})
+    Qcon[RO].lo[Frequency] = freq
+    nothing
+end
 
-    #Configuring Readout channels
-    awgRead[OutputMode, stim.IQ_readout_chs...] = :Arbitrary
-    awgRead[Amplitude,stim.IQ_readout_chs...] = stim.readoutPulse.amplitude
-    awgRead[DCOffset, stim.IQ_readout_chs...] = 0
-    awgRead[QueueCycleMode, stim.IQ_readout_chs...] = :Cyclic
-    awgRead[QueueSyncMode, stim.IQ_readout_chs...] = :CLK10
-    awgRead[TrigSource, stim.IQ_readout_chs...] = stim.PXI_line
-    awgRead[TrigBehavior, stim.IQ_readout_chs...] = :Low
-    awgRead[TrigSync, stim.IQ_readout_chs...] = :CLK10
-    awgRead[AmpModMode, stim.IQ_readout_chs...] = :Off
-    awgRead[AngModMode, stim.IQ_readout_chs...] = :Off
+function setindex!(Qcon::QubitController, power::Real, ::Type{ReadoutPower})
+    Qcon[RO].awg[SinePower, Qcon[RO].Ich, Qcon[RO].Qch] = power
+    Qcon.configuration[ReadoutPower] = power
+    nothing
+end
 
-    #Configuring marker channel
-    awgMarker[OutputMode, stim.markerCh] = :Arbitrary
-    awgMarker[Amplitude, stim.markerCh] = 1.5 #arbitrary marker voltage I chose
-    awgMarker[DCOffset, stim.markerCh] = 0
-    awgMarker[QueueCycleMode, stim.markerCh] = :Cyclic
-    awgMarker[QueueSyncMode, stim.markerCh] = :CLK10
-    awgMarker[TrigSource, stim.markerCh] = stim.PXI_line
-    awgMarker[TrigBehavior, stim.markerCh] = :Low
-    awgMarker[TrigSync, stim.markerCh] = :CLK10
-    awgMarker[AmpModMode, stim.markerCh] = :Off
-    awgMarker[AngModMode, stim.markerCh] = :Off
+function setindex!(Qcon::QubitController, amp::Real, ::Type{ReadoutAmplitude})
+    Qcon[RO].awg[Amplitude, Qcon[RO].Ich, Qcon[RO].Qch] = amp
+    Qcon.configuration[ReadoutPower] = amp
+    nothing
+end
 
-    #loading readout, marker, and delay pulses
-    load_pulse(awgRead, stim.readoutPulse)
-    marker_pulse = DCPulse(1.5, stim.readoutPulse.duration, RectEdge, awgMarker[SampleRate],
-                           name = "Markers_Voltage=1.5")
-    load_pulse(awgMarker, marker_pulse, "Markers_Voltage=1.5")
-    read_delay_20ns = DelayPulse(20e-9, awgRead[SampleRate], name = "20ns_delay")
-    load_pulse(awgRead, read_delay_20ns, "20ns_delay")
-    marker_delay_20ns = DelayPulse(20e-9, awgMarker[SampleRate], name = "20ns_delay")
-    load_pulse(awgMarker, marker_delay_20ns, "20ns_delay")
+function setindex!(Qcon::QubitController, delay::Real, ::Type{DecayDelay})
+    Qcon.configuration[DecayDelay] = delay
+    nothing
+end
+
+function setindex!(Qcon::QubitController, delay::Real, ::Type{EndDelay})
+    Qcon.configuration[EndDelay] = delay
+    nothing
+end
+
+function setindex!(Qcon::QubitController, averages::Integer, ::Type{Averages})
+    Qcon.configuration[Averages] = averages
+    nothing
+end
+
+function setindex!(Qcon::QubitController, delay::Integer, ::Type{DigDelay})
+    Qcon.configuration[DigDelay] = delay
+    nothing
+end
+
+function setindex!(Qcon::QubitController, line::Integer, ::Type{PXI})
+    Qcon.configuration[PXI] = line
+    nothing
+end
+
+function setindex!(Qcon::QubitController, freq::Real, q::AbstractString, ::Type{xyIF})
+    Qcon[q].awg[FGFrequency, Qcon[q].Ich, Qcon[q].Qch] = freq
+    nothing
+end
+
+function setindex!(Qcon::QubitController, amp::Real, q::AbstractString, ::Type{xyAmplitude})
+    Qcon[q].awg[AmpModGain, Qcon[q].Ich, Qcon[q].Qch] = amp
+    nothing
+end
+
+function setindex!(Qcon::QubitController, pulse::Pulse, q::AbstractString, ::Type{T}) where {T<:Gate}
+    load_pulse(Qcon[q].awg, pulse)
+    Qcon[q].gates[T] = pulse
+    nothing
+end
+
+function setindex!(Qcon::QubitController, length::Real, q::AbstractString, ::Type{X})
+    pulse = AnalogPulse(length, CosEnvelope, Qcon[q].awg[SampleRate], name = q*" X π pulse")
+    load_pulse(Qcon[q].awg, pulse, q*" X π pulse")
+    Qcon[q].gates[X] = pulse
+    nothing
+end
+
+function setindex!(Qcon::QubitController, length::Real, q::AbstractString, ::Type{X_2})
+    pulse = AnalogPulse(length, CosEnvelope, Qcon[q].awg[SampleRate], name = q*" X π/2 pulse")
+    load_pulse(Qcon[q].awg, pulse, q*" X π/2 pulse")
+    Qcon[q].gates[X_2] = pulse
+    nothing
+end
+
+function setindex!(Qcon::QubitController, freq::Real, ::Type{xyLO})
+    Qcon[xyLOsource][Frequency] = freq
+    nothing
+end
+
+function setindex!(Qcon::QubitController, roPulse::DigitalPulse, ::Type{ReadoutPulse})
+    Qcon.configuration[ReadoutPulse] = roPulse
     nothing
 end
