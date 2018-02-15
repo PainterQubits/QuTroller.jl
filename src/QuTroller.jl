@@ -73,6 +73,7 @@ include("Inspect.jl")
 include("Configure.jl")
 include("Response.jl")
 include("Stimulus.jl")
+include("experimental code.jl")
 
 const global qubitController = Ref{QubitController}()
 
