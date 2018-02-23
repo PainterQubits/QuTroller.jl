@@ -3,14 +3,31 @@ export Avg_IQResponse
 export Avg_IQResponse2
 export RO_Multi_IQ
 
+mutable struct RO_IQ <: Response
+    trig_source::Any
+    freq::Float64
+end
+
+mutable struct Avg_RO_IQ <: Response
+    respIQ::RO_IQ
+end
+
+Avg_RO_IQ(trig_source::Any, freq::Float64) = Avg_RO_IQ(RO_IQ(trig_source, freq))
+
+mutable struct piNopi_RO_IQ <: Response
+    respIQ::RO_IQ
+end
+
 mutable struct RO_Multi_IQ <: Response
     trig_source::Any
 end
 
-mutable struct RO_IQ_Response <: Response
-    trig_source::Any
-    freq::Float64
+mutable struct Avg_Multi_IQ <: Response
+    respIQ::RO_Multi_IQ
 end
+
+ Avg_Multi_IQ(trig_source::Symbol) = Avg_Multi_IQ(RO_Multi_IQ(trig_source))
+ Avg_Multi_IQ(trig_source::Integer) = Avg_Multi_IQ(RO_Multi_IQ(trig_source))
 
 function measure(resp::RO_IQ_Response)
     #renaming for convenience
@@ -69,17 +86,9 @@ function measure(resp::RO_IQ_Response)
     return all_IQ::Vector{Complex{Float32}}
 end
 
-mutable struct piNopi_IQResponse <: Response
-    respIQ::RO_IQ_Response
-end
-
 function measure(resp::piNopi_IQResponse)
     all_IQ = measure(resp.respIQ)::Array{Complex{Float32},1}
     return AxisArray([mean(all_IQ[1:2:end]), mean(all_IQ[2:2:end])], Axis{:pulse}([:pi, :nopi]))
-end
-
-mutable struct Avg_IQResponse <: Response
-    respIQ::RO_IQ_Response
 end
 
 function measure(resp::Avg_IQResponse)
@@ -127,7 +136,7 @@ function measure(resp::RO_Multi_IQ)
     @KSerror_handler SD_Module_PXItriggerWrite(dig.ID, control_line, 1)
 
     #processing data
-    all_freqs_IQ = Vector{Complex{Float32}}(size(Qcon[ReadoutIF])[1])
+    all_freqs_IQ = Array{Complex{Float32}}(daq_cycles, size(Qcon[ReadoutIF])[1])
     for i in range(1, size(Qcon[ReadoutIF])[1])
         freq = Qcon[ReadoutIF][i]
         num_samples = points_per_cycle
@@ -143,7 +152,12 @@ function measure(resp::RO_Multi_IQ)
             Q = (dot(Q_data, cos_ωt) - dot(I_data, sin_ωt))/num_samples
             all_IQ[j] = complex(I,Q)
         end
-        all_freqs_IQ[i] = mean(all_IQ)
+        all_freqs_IQ[:,i] = all_IQ
     end
-    return all_freqs_IQ::Vector{Complex{Float32}}
+    return all_freqs_IQ::Array{Complex{Float32}}
+end
+
+function measure(resp::Avg_Multi_IQ)
+     all_freqs_IQ = measure(resp.respIQ)::Array{Complex{Float32}}
+     return AxisArray(mean(all_freqs_IQ, 1), Axis{:ifs}(Qcon[ReadoutIF]))
 end
